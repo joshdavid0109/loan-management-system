@@ -55,11 +55,52 @@ async function calculateLoanValues() {
             // Update disabled fields in the modal
             const modal = document.querySelector('#modal-1');
             if (modal) {
-                const disabledInputs = modal.querySelectorAll('input[disabled][type="number"]');
+                // Try different selectors to find the disabled inputs
+                let disabledInputs = modal.querySelectorAll('input[disabled][type="number"]');
+                
+                // If the above doesn't work, try these alternatives
+                if (disabledInputs.length === 0) {
+                    disabledInputs = modal.querySelectorAll('input[readonly][type="number"]');
+                }
+                if (disabledInputs.length === 0) {
+                    disabledInputs = modal.querySelectorAll('input[type="number"]:disabled');
+                }
+                if (disabledInputs.length === 0) {
+                    disabledInputs = modal.querySelectorAll('input[type="number"][readonly]');
+                }
+                
+                console.log('Found disabled inputs:', disabledInputs.length);
+                
                 if (disabledInputs.length >= 3) {
-                    disabledInputs[0].value = loanData.totalInterest.toFixed(2); // Total Interest
-                    disabledInputs[1].value = loanData.totalBalance.toFixed(2);  // Total Balance  
-                    disabledInputs[2].value = loanData.dailyAmortization.toFixed(2); // Daily Amortization
+                    // Total Interest
+                    disabledInputs[0].value = loanData.totalInterest.toFixed(2);
+                    console.log('Updated Total Interest:', loanData.totalInterest.toFixed(2));
+                    
+                    // Total Balance
+                    disabledInputs[1].value = loanData.totalBalance.toFixed(2);
+                    console.log('Updated Total Balance:', loanData.totalBalance.toFixed(2));
+                    
+                    // Daily Amortization
+                    disabledInputs[2].value = loanData.dailyAmortization.toFixed(2);
+                    console.log('Updated Daily Amortization:', loanData.dailyAmortization.toFixed(2));
+                } else {
+                    // Try to find by specific names or IDs if available
+                    const totalInterestField = modal.querySelector('input[name="totalInterest"], #totalInterest, input[placeholder*="Interest"]');
+                    const totalBalanceField = modal.querySelector('input[name="totalBalance"], #totalBalance, input[placeholder*="Balance"]');
+                    const dailyAmortField = modal.querySelector('input[name="dailyAmortization"], #dailyAmortization, input[placeholder*="Amortization"]');
+                    
+                    if (totalInterestField) {
+                        totalInterestField.value = loanData.totalInterest.toFixed(2);
+                        console.log('Updated Total Interest (by name):', loanData.totalInterest.toFixed(2));
+                    }
+                    if (totalBalanceField) {
+                        totalBalanceField.value = loanData.totalBalance.toFixed(2);
+                        console.log('Updated Total Balance (by name):', loanData.totalBalance.toFixed(2));
+                    }
+                    if (dailyAmortField) {
+                        dailyAmortField.value = loanData.dailyAmortization.toFixed(2);
+                        console.log('Updated Daily Amortization (by name):', loanData.dailyAmortization.toFixed(2));
+                    }
                 }
             }
             
@@ -224,14 +265,16 @@ document.addEventListener('DOMContentLoaded', function() {
             };
         }
         
-        const debouncedCalculate = debounce(calculateLoanValues, 500);
+        const debouncedCalculate = debounce(calculateLoanValues, 300); // Reduced wait time
         
         if (principalInput) {
             principalInput.addEventListener('input', debouncedCalculate);
+            principalInput.addEventListener('change', calculateLoanValues); // Also trigger on change
         }
         
         if (loanTermInput) {
             loanTermInput.addEventListener('input', debouncedCalculate);
+            loanTermInput.addEventListener('change', calculateLoanValues); // Also trigger on change
         }
         
         // Handle dropdown selection for frequency
@@ -240,15 +283,30 @@ document.addEventListener('DOMContentLoaded', function() {
             item.addEventListener('click', function(e) {
                 e.preventDefault();
                 const dropdownButton = this.closest('.dropdown').querySelector('.dropdown-toggle');
-                dropdownButton.textContent = this.textContent + ' ';
+                dropdownButton.innerHTML = this.textContent + ' <span class="caret"></span>';
                 
-                // Hide dropdown
+                // Hide dropdown manually
                 const dropdownMenu = this.closest('.dropdown-menu');
-                dropdownMenu.classList.remove('show');
+                if (dropdownMenu) {
+                    dropdownMenu.classList.remove('show');
+                }
                 
-                calculateLoanValues();
+                // Trigger calculation after dropdown change
+                setTimeout(() => {
+                    calculateLoanValues();
+                }, 100);
             });
         });
+
+        // Also handle Bootstrap dropdown events
+        const dropdown = modal.querySelector('.dropdown-toggle');
+        if (dropdown) {
+            dropdown.addEventListener('hide.bs.dropdown', function() {
+                setTimeout(() => {
+                    calculateLoanValues();
+                }, 100);
+            });
+        }
         
         // Generate Table button
         const generateButton = modal.querySelector('button[data-bs-target="#modal-2"]');
