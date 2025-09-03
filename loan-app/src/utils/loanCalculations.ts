@@ -1,12 +1,20 @@
 import { Decimal } from 'decimal.js';
 import type { LoanCalculation, RepaymentSchedule } from '../types/loan';
 
+// Formats a Date into YYYY-MM-DD using LOCAL time (avoids UTC shift)
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const calculateLoan = (
   principal: number,
   interest_rate_monthly: number,
   loan_term_months: number,
   frequency: 'daily' | 'weekly' | 'monthly',
-  startDate: string = new Date().toISOString().split('T')[0]
+  startDate: string = formatLocalDate(new Date())
 ): LoanCalculation => {
   const principalDecimal = new Decimal(principal);
   const monthlyRate = new Decimal(interest_rate_monthly).div(100);
@@ -160,23 +168,23 @@ export const calculateDaysBetween = (startDate: string, endDate: string): number
 export const addMonths = (date: string, months: number): string => {
   const d = new Date(date);
   const newDate = new Date(d.getFullYear(), d.getMonth() + months, d.getDate());
-  const result = newDate.toISOString().split('T')[0];
+  const result = formatLocalDate(newDate);
   console.log(`addMonths: ${date} + ${months} months = ${result}`);
   return result;
 };
 
 export const addDays = (date: string, days: number): string => {
   const d = new Date(date);
-  const newDate = new Date(d.getTime() + (days * 24 * 60 * 60 * 1000));
-  const result = newDate.toISOString().split('T')[0];
+  const newDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+  const result = formatLocalDate(newDate);
   console.log(`addDays: ${date} + ${days} days = ${result}`);
   return result;
 };
 
 export const addWeeks = (date: string, weeks: number): string => {
   const d = new Date(date);
-  const newDate = new Date(d.getTime() + (weeks * 7 * 24 * 60 * 60 * 1000));
-  const result = newDate.toISOString().split('T')[0];
+  const newDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (weeks * 7));
+  const result = formatLocalDate(newDate);
   console.log(`addWeeks: ${date} + ${weeks} weeks = ${result}`);
   return result;
 };

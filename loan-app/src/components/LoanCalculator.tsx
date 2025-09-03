@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { calculateLoan, formatCurrency, formatPercentage } from '../utils/loanCalculations';
 import type { LoanCalculation } from '../types/loan';
+import { saveLoanWithSchedule } from '../utils/loanService';
 
 interface LoanFormData {
   principal: number;
@@ -9,11 +10,17 @@ interface LoanFormData {
   loan_term_months: number;
   frequency: 'daily' | 'weekly' | 'monthly';
   start_date: string;
+  debtor_id: number;
+  creditor_id: number;
+  date_released: string;
 }
 
 const LoanCalculator: React.FC = () => {
   const [calculation, setCalculation] = useState<LoanCalculation | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [saving, setSaving] = useState(false);
 
   const {
     register,
@@ -27,6 +34,9 @@ const LoanCalculator: React.FC = () => {
       loan_term_months: 12,
       frequency: 'monthly',
       start_date: new Date().toISOString().split('T')[0],
+      date_released: new Date().toISOString().split('T')[0],
+      debtor_id: 1,
+      creditor_id: 1,
     },
   });
 
@@ -37,7 +47,8 @@ const LoanCalculator: React.FC = () => {
       data.principal,
       data.interest_rate_monthly,
       data.loan_term_months,
-      data.frequency
+      data.frequency,
+      data.start_date
     );
     setCalculation(result);
     setShowSchedule(false);
@@ -50,12 +61,29 @@ const LoanCalculator: React.FC = () => {
         data.principal,
         data.interest_rate_monthly,
         data.loan_term_months,
-        data.frequency
+        data.frequency,
+        data.start_date
       );
       setCalculation(result);
       setShowSchedule(false);
+      setCurrentPage(1);
     }
   };
+
+  // Reset to first page whenever a new calculation is shown
+  useEffect(() => {
+    if (showSchedule) {
+      setCurrentPage(1);
+    }
+  }, [showSchedule, calculation]);
+
+  // Pagination derived values
+  const totalItems = calculation?.amortization_schedule.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const currentRows = calculation ? calculation.amortization_schedule.slice(startIndex, endIndex) : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8">
@@ -169,6 +197,33 @@ const LoanCalculator: React.FC = () => {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-3">Date Released</label>
+                  <input
+                    type="date"
+                    {...register('date_released')}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 transition-all duration-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-3">Debtor ID</label>
+                  <input
+                    type="number"
+                    {...register('debtor_id', { required: true, min: 1 })}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 transition-all duration-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-3">Creditor ID</label>
+                  <input
+                    type="number"
+                    {...register('creditor_id', { required: true, min: 1 })}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 transition-all duration-200"
+                  />
+                </div>
+              </div>
+
               <div className="flex space-x-4 pt-4">
                 <button
                   type="submit"
@@ -182,6 +237,36 @@ const LoanCalculator: React.FC = () => {
                   className="flex-1 bg-gradient-to-r from-slate-600 to-slate-700 text-white py-3 px-6 rounded-xl hover:from-slate-700 hover:to-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
                 >
                   Quick Calculate
+                </button>
+                <button
+                  type="button"
+                  disabled={!calculation || saving}
+                  onClick={async () => {
+                    if (!calculation) return;
+                    try {
+                      setSaving(true);
+                      const data = watchedValues;
+                      const loanId = await saveLoanWithSchedule({
+                        debtor_id: Number(data.debtor_id),
+                        creditor_id: Number(data.creditor_id),
+                        principal_amount: Number(data.principal),
+                        date_released: data.date_released,
+                        interest_rate_monthly: Number(data.interest_rate_monthly),
+                        loan_term_months: Number(data.loan_term_months),
+                        frequency_of_collection: data.frequency,
+                        start_date: data.start_date,
+                        calculation,
+                      });
+                      alert(`Saved! Loan ID: ${loanId}`);
+                    } catch (err: any) {
+                      alert(`Save failed: ${err.message ?? String(err)}`);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-green-700 text-white py-3 px-6 rounded-xl disabled:opacity-50 hover:from-emerald-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
+                >
+                  {saving ? 'Saving...' : 'Save to Supabase'}
                 </button>
               </div>
             </form>
@@ -291,16 +376,13 @@ const LoanCalculator: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white/50 divide-y divide-slate-200">
-                  {calculation.amortization_schedule.map((payment, index) => (
-                    <tr key={payment.schedule_id} className={`hover:bg-slate-50/80 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white/30' : 'bg-slate-50/30'}`}>
+                  {currentRows.map((payment, index) => (
+                    <tr key={payment.schedule_id} className={`hover:bg-slate-50/80 transition-colors duration-150 ${(startIndex + index) % 2 === 0 ? 'bg-white/30' : 'bg-slate-50/30'}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
                         {payment.payment_no}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        {watchedValues.start_date ? 
-                          new Date(watchedValues.start_date).toLocaleDateString() : 
-                          'N/A'
-                        }
+                        {payment.due_date ? new Date(payment.due_date).toLocaleDateString() : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
                         {formatCurrency(payment.amortization)}
@@ -318,6 +400,46 @@ const LoanCalculator: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+            {/* Pagination controls */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between px-6 py-4 gap-3">
+              <div className="text-sm text-slate-600">
+                Showing <span className="font-semibold text-slate-800">{totalItems === 0 ? 0 : startIndex + 1}</span>
+                {' '}to{' '}
+                <span className="font-semibold text-slate-800">{endIndex}</span> of{' '}
+                <span className="font-semibold text-slate-800">{totalItems}</span> payments
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-slate-600">Rows per page</label>
+                <select
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setCurrentPage(1); }}
+                  className="px-3 py-2 border border-slate-200 rounded-lg bg-white"
+                >
+                  {[10, 20, 50].map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3 py-2 rounded-lg border border-slate-200 text-slate-700 disabled:opacity-40"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                  >
+                    Prev
+                  </button>
+                  <span className="text-sm text-slate-700">
+                    Page <span className="font-semibold">{safePage}</span> of <span className="font-semibold">{totalPages}</span>
+                  </span>
+                  <button
+                    className="px-3 py-2 rounded-lg border border-slate-200 text-slate-700 disabled:opacity-40"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
