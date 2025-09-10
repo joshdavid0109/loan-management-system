@@ -1,13 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-if (!supabaseUrl || !supabaseKey) {
+let client: SupabaseClient | null = null;
+if (supabaseUrl && supabaseKey) {
+  client = createClient(supabaseUrl, supabaseKey);
+} else {
   // eslint-disable-next-line no-console
-  console.warn('Supabase environment variables are not set. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+  console.warn('Supabase env vars missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. Saving will be disabled.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase: SupabaseClient | null = client;
 
 

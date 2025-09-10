@@ -14,6 +14,9 @@ export interface CreateLoanInput {
 }
 
 export const saveLoanWithSchedule = async (input: CreateLoanInput) => {
+  if (!supabase) {
+    throw new Error('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+  }
   // 1) Insert loan
   const { data: loanInsert, error: loanError } = await supabase
     .from('loans')
