@@ -445,12 +445,7 @@ console.log("Payments table schedule_ids:", paymentsData);
                         ) : (
                           selectedSchedule.map((payment) => (
                             <tr
-                              className={`
-                                transition-colors duration-150
-                                ${payment.amount_paid_flag
-                                  ? 'bg-rose-100 border-l-4 border-rose-500'
-                                  : 'hover:bg-slate-50/80'}
-                              `}
+                               className="transition-colors duration-150 hover:bg-slate-50/80"
                             >
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-indigo-100 to-blue-100 text-indigo-800 border border-indigo-200">
