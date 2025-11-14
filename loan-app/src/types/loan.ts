@@ -14,7 +14,6 @@ export interface Debtor {
   contact_info?: string;
   address?: string;
 }
-
 export interface Loan {
   loan_id: number;
   debtor_id: number;
@@ -23,12 +22,15 @@ export interface Loan {
   date_released: string;
   interest_rate_monthly: number;
   loan_term_months: number;
-  frequency_of_collection: 'daily' | 'weekly' | 'monthly';
-  start_date?: string;
-  status: 'Ongoing' | 'Completed' | 'Defaulted';
-  debtor?: Debtor;
-  creditor?: Creditor;
+  frequency_of_collection: string;
+  start_date: string;
+  status: string;
+
+  // MAKE THESE OPTIONAL
+  debtor?: Debtor | null;
+  creditor?: Creditor | null;
 }
+
 
 export interface RepaymentSchedule {
   schedule_id: number;

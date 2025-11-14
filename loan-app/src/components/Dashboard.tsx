@@ -1,35 +1,77 @@
-import React from 'react';
-import { 
-  BanknotesIcon, 
-  UserGroupIcon, 
-  CheckCircleIcon, 
+// src/components/Dashboard.tsx
+import React, { useEffect, useState } from 'react';
+import {
+  BanknotesIcon,
+  UserGroupIcon,
+  CheckCircleIcon,
   ExclamationTriangleIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { mockDashboardStats, mockLoans } from '../data/mockData';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 import { formatCurrency } from '../utils/loanCalculations';
+import {
+  fetchDashboardStats,
+  fetchMonthlyCollections,
+  fetchLoanStatusCounts,
+  fetchRecentLoans
+} from '../services/dashboardService';
+import type { Loan, DashboardStats } from '../types/loan';
 
 const Dashboard: React.FC = () => {
-  const stats = mockDashboardStats;
-  const loans = mockLoans;
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [chartData, setChartData] = useState<{ name: string; amount: number }[]>([]);
+  const [pieData, setPieData] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [recentLoans, setRecentLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingCharts, setLoadingCharts] = useState(true);
 
-  const chartData = [
-    { name: 'Jan', amount: 25000 },
-    { name: 'Feb', amount: 30000 },
-    { name: 'Mar', amount: 28000 },
-    { name: 'Apr', amount: 35000 },
-    { name: 'May', amount: 32000 },
-    { name: 'Jun', amount: 40000 },
-  ];
+  // colors for pie
+  const PIE_COLORS = ['#6366F1', '#10B981', '#EF4444'];
 
-  const pieData = [
-    { name: 'Active Loans', value: stats.active_loans, color: '#6366F1' },
-    { name: 'Completed', value: stats.completed_loans, color: '#10B981' },
-    { name: 'Defaulted', value: stats.defaulted_loans, color: '#EF4444' },
-  ];
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const s = await fetchDashboardStats();
+        setStats(s);
 
+        const series = await fetchMonthlyCollections(6);
+        setChartData(series);
+
+        const counts = await fetchLoanStatusCounts();
+        setPieData([
+          { name: 'Active Loans', value: counts.active, color: PIE_COLORS[0] },
+          { name: 'Completed', value: counts.completed, color: PIE_COLORS[1] },
+          { name: 'Defaulted', value: counts.defaulted, color: PIE_COLORS[2] }
+        ]);
+
+        const recent = await fetchRecentLoans(5);
+        setRecentLoans(recent);
+      } catch (err: any) {
+        console.error('Dashboard load error', err);
+        alert('Failed to load dashboard data. See console for details.');
+      } finally {
+        setLoading(false);
+        setLoadingCharts(false);
+      }
+    };
+
+    load();
+  }, []);
+
+  // small helpers for stat card
   const StatCard: React.FC<{
     title: string;
     value: string | number;
@@ -66,6 +108,20 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
+  if (loading && !stats) {
+    return <div className="p-8 text-center text-slate-600">Loading dashboard...</div>;
+  }
+
+  const s = stats ?? {
+    total_loans: 0,
+    active_loans: 0,
+    completed_loans: 0,
+    defaulted_loans: 0,
+    total_outstanding: 0,
+    total_collected: 0,
+    monthly_collection: 0
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -83,7 +139,7 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           <StatCard
             title="Total Loans"
-            value={stats.total_loans}
+            value={s.total_loans}
             icon={<BanknotesIcon className="w-6 h-6 text-white" />}
             change="+12%"
             changeType="positive"
@@ -91,7 +147,7 @@ const Dashboard: React.FC = () => {
           />
           <StatCard
             title="Active Loans"
-            value={stats.active_loans}
+            value={s.active_loans}
             icon={<UserGroupIcon className="w-6 h-6 text-white" />}
             change="+5%"
             changeType="positive"
@@ -99,7 +155,7 @@ const Dashboard: React.FC = () => {
           />
           <StatCard
             title="Completed Loans"
-            value={stats.completed_loans}
+            value={s.completed_loans}
             icon={<CheckCircleIcon className="w-6 h-6 text-white" />}
             change="+8%"
             changeType="positive"
@@ -107,10 +163,10 @@ const Dashboard: React.FC = () => {
           />
           <StatCard
             title="Defaulted Loans"
-            value={stats.defaulted_loans}
+            value={s.defaulted_loans}
             icon={<ExclamationTriangleIcon className="w-6 h-6 text-white" />}
             change="-2%"
-            changeType="positive"
+            changeType="negative"
             gradient="from-rose-500 to-rose-600"
           />
         </div>
@@ -126,15 +182,15 @@ const Dashboard: React.FC = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-xl">
                 <span className="text-slate-600 font-medium">Total Outstanding</span>
-                <span className="font-bold text-red-600 text-lg">{formatCurrency(stats.total_outstanding)}</span>
+                <span className="font-bold text-red-600 text-lg">{formatCurrency(s.total_outstanding)}</span>
               </div>
               <div className="flex justify-between items-center p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl">
                 <span className="text-slate-600 font-medium">Total Collected</span>
-                <span className="font-bold text-emerald-600 text-lg">{formatCurrency(stats.total_collected)}</span>
+                <span className="font-bold text-emerald-600 text-lg">{formatCurrency(s.total_collected)}</span>
               </div>
               <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl">
                 <span className="text-slate-600 font-medium">Monthly Collection</span>
-                <span className="font-bold text-blue-600 text-lg">{formatCurrency(stats.monthly_collection)}</span>
+                <span className="font-bold text-blue-600 text-lg">{formatCurrency(s.monthly_collection)}</span>
               </div>
             </div>
           </div>
@@ -162,7 +218,7 @@ const Dashboard: React.FC = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   contentStyle={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: 'none',
@@ -176,7 +232,7 @@ const Dashboard: React.FC = () => {
               {pieData.map((item, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-white/50 rounded-xl">
                   <div className="flex items-center">
-                    <div 
+                    <div
                       className="w-4 h-4 rounded-full mr-3 shadow-sm"
                       style={{ backgroundColor: item.color }}
                     />
@@ -195,26 +251,30 @@ const Dashboard: React.FC = () => {
               Recent Activity
             </h3>
             <div className="space-y-4">
-              {loans.slice(0, 3).map((loan) => (
-                <div key={loan.loan_id} className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-colors duration-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-slate-800 text-sm">{loan.debtor?.name}</p>
-                      <p className="text-xs text-slate-500 mt-1">{loan.debtor?.address}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-slate-800 text-sm">{formatCurrency(loan.principal_amount)}</p>
-                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full mt-1 ${
-                        loan.status === 'Ongoing' ? 'bg-blue-100 text-blue-700' :
-                        loan.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
-                        'bg-rose-100 text-rose-700'
-                      }`}>
-                        {loan.status}
-                      </span>
+              {recentLoans.length === 0 ? (
+                <div className="p-4 text-sm text-slate-500">No recent loans.</div>
+              ) : (
+                recentLoans.map((loan) => (
+                  <div key={loan.loan_id} className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-colors duration-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-slate-800 text-sm">{loan.debtor?.name ?? '—'}</p>
+                        <p className="text-xs text-slate-500 mt-1">{loan.debtor?.address ?? ''}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-slate-800 text-sm">{formatCurrency(loan.principal_amount)}</p>
+                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full mt-1 ${
+                          loan.status === 'Ongoing' ? 'bg-blue-100 text-blue-700' :
+                          loan.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
+                          'bg-rose-100 text-rose-700'
+                        }`}>
+                          {loan.status}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -228,19 +288,20 @@ const Dashboard: React.FC = () => {
           <ResponsiveContainer width="100%" height={350}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-              <XAxis 
-                dataKey="name" 
+              <XAxis
+                dataKey="name"
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#64748B', fontSize: 12 }}
               />
-              <YAxis 
+              <YAxis
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#64748B', fontSize: 12 }}
+                tickFormatter={(value) => `${formatCurrency(Number(value))}`}
               />
-              <Tooltip 
-                formatter={(value) => formatCurrency(Number(value))}
+              <Tooltip
+                formatter={(value: any) => formatCurrency(Number(value))}
                 contentStyle={{
                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
                   border: 'none',
@@ -248,18 +309,18 @@ const Dashboard: React.FC = () => {
                   boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
                 }}
               />
-              <Bar 
-                dataKey="amount" 
-                fill="url(#gradient)"
-                radius={[8, 8, 0, 0]}
-                strokeWidth={0}
-              />
               <defs>
                 <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#6366F1" />
                   <stop offset="100%" stopColor="#8B5CF6" />
                 </linearGradient>
               </defs>
+              <Bar
+                dataKey="amount"
+                fill="url(#gradient)"
+                radius={[8, 8, 0, 0]}
+                strokeWidth={0}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

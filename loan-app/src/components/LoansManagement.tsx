@@ -12,7 +12,12 @@ import { supabase } from '../../src/utils/supabaseClient';
 import type { Loan, RepaymentSchedule } from '../types/loan';
 import { formatCurrency } from '../utils/loanCalculations';
 
-const LoansManagement: React.FC = () => {
+interface LoansManagementProps {
+  onCreateNewLoan: () => void;
+}
+
+
+const LoansManagement: React.FC<LoansManagementProps> = ({onCreateNewLoan}) => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loadingLoans, setLoadingLoans] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,6 +31,7 @@ const LoansManagement: React.FC = () => {
   const [loadingSchedule, setLoadingSchedule] = useState<boolean>(false);
 
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+
 
   // Fetch loans with debtor + creditor in one query
   const fetchLoans = useCallback(async () => {
@@ -206,12 +212,12 @@ const LoansManagement: React.FC = () => {
               <p className="mt-4 text-lg text-slate-600 max-w-2xl">Manage all loans, track their status, and monitor portfolio performance</p>
             </div>
             <button
-              onClick={() => alert('Open New Loan modal (implement)')}
+              onClick={onCreateNewLoan}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl flex items-center justify-center"
             >
               <PlusIcon className="w-5 h-5 mr-2" />
               New Loan
-            </button>
+          </button>
           </div>
         </div>
 

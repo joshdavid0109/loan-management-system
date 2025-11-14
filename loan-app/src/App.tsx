@@ -18,7 +18,7 @@ function App() {
       case 'calculator':
         return <LoanCalculator />;
       case 'loans':
-        return <LoansManagement />;
+        return <LoansManagement onCreateNewLoan={() => setCurrentPage('calculator')} />;
       case 'debtors':
         return <DebtorsManagement />;
       case 'creditors':
@@ -43,3 +43,4 @@ function App() {
 }
 
 export default App;
+
