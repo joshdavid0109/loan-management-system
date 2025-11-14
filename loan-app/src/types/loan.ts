@@ -40,7 +40,7 @@ export interface RepaymentSchedule {
   amortization: number;
   principal: number;
   interest: number;
-  amount_paid_flag?: string;
+  amount_paid_flag?: boolean;
   balance: number;
 }
 

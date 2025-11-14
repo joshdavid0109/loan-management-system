@@ -37,7 +37,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
         <div className="fixed inset-y-0 left-0 flex w-72 flex-col bg-white/95 backdrop-blur-xl border-r border-white/20 shadow-2xl">
           <div className="flex h-20 items-center justify-between px-6 border-b border-slate-200/50">
             <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-              Loan Management
+              DPE Loan Management
             </h1>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -77,7 +77,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
         <div className="flex flex-col flex-grow bg-white/95 backdrop-blur-xl border-r border-white/20 shadow-2xl">
           <div className="flex h-20 items-center px-6 border-b border-slate-200/50">
             <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-              Loan Management
+              DPE Loan Management
             </h1>
           </div>
           <nav className="flex-1 space-y-2 px-4 py-6">
@@ -113,7 +113,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
             <Bars3Icon className="h-6 w-6" />
           </button>
           <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-            Loan Management
+            DPE Loan Management
           </h1>
           <div className="w-10" /> {/* Spacer for centering */}
         </div>

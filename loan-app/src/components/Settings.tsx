@@ -10,7 +10,7 @@ import {
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [settings, setSettings] = useState({
-    companyName: 'Loan Management System',
+    companyName: 'DPE Loan Management System',
     defaultCurrency: 'PHP',
     defaultInterestRate: 2.5,
     emailNotifications: true,

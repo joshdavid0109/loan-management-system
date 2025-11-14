@@ -128,7 +128,7 @@ const Dashboard: React.FC = () => {
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-            Loan Management Dashboard
+            DPE Loan Management Dashboard
           </h1>
           <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
             Comprehensive overview of your loan portfolio performance and financial insights

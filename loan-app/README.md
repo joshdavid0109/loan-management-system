@@ -1,6 +1,6 @@
-# Loan Management System
+# DPE Loan Management System
 
-A comprehensive web-based loan management system built with React, TypeScript, and Tailwind CSS. This system provides tools for managing loans, calculating payments, tracking debtors and creditors, and generating financial reports.
+A comprehensive web-based DPE Loan Management system built with React, TypeScript, and Tailwind CSS. This system provides tools for managing loans, calculating payments, tracking debtors and creditors, and generating financial reports.
 
 ## Features
 

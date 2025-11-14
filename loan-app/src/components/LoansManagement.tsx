@@ -135,41 +135,64 @@ const LoansManagement: React.FC<LoansManagementProps> = ({onCreateNewLoan}) => {
 
   // Fetch schedule on demand
   const handleViewSchedule = async (loan: Loan) => {
-    setSelectedLoan(loan);
-    setShowSchedule(true);
-    setLoadingSchedule(true);
-    setSelectedSchedule([]);
+  setSelectedLoan(loan);
+  setShowSchedule(true);
+  setLoadingSchedule(true);
+  setSelectedSchedule([]);
 
-    try {
-      const { data, error } = await supabase
-        .from('repayment_schedule')
-        .select('*')
-        .eq('loan_id', loan.loan_id)
-        .order('payment_no', { ascending: true });
+  try {
+    // 1. Fetch the schedule normally
+    const { data: scheduleData, error: scheduleErr } = await supabase
+      .from("repayment_schedule")
+      .select("*")
+      .eq("loan_id", loan.loan_id)
+      .order("payment_no", { ascending: true });
 
-      if (error) throw error;
+    if (scheduleErr) throw scheduleErr;
 
-      const mapped: RepaymentSchedule[] = (data || []).map((r: any) => ({
-        schedule_id: Number(r.schedule_id),
-        loan_id: Number(r.loan_id),
-        payment_no: Number(r.payment_no),
-        due_date: r.due_date,
-        amortization: Number(r.amortization),
-        principal: Number(r.principal),
-        interest: Number(r.interest),
-        amount_paid_flag: r.amount_paid_flag,
-        balance: Number(r.balance)
-      }));
+    // Extract schedule IDs
+    const scheduleIds = scheduleData.map((s: any) => s.schedule_id);
 
-      setSelectedSchedule(mapped);
-    } catch (err: any) {
-      console.error('Error fetching schedule:', err);
-      alert(`Failed to load schedule: ${err.message ?? err}`);
-      setShowSchedule(false);
-    } finally {
-      setLoadingSchedule(false);
-    }
-  };
+    console.log(scheduleIds)
+
+    console.log("Schedule IDs:", scheduleIds);
+
+const { data: paymentsData } = await supabase
+  .from("payments")
+  .select("schedule_id, payment_id, loan_id");
+
+console.log("Payments table schedule_ids:", paymentsData);
+
+    // Convert to set for fast lookup
+    const paidSet = new Set(paymentsData?.map((p) => p.schedule_id) || []);
+
+    // 3. Merge into final result
+    const mapped: RepaymentSchedule[] = scheduleData.map((r: any) => ({
+      schedule_id: r.schedule_id,
+      loan_id: r.loan_id,
+      payment_no: r.payment_no,
+      due_date: r.due_date,
+      amortization: Number(r.amortization),
+      principal: Number(r.principal),
+      interest: Number(r.interest),
+      balance: Number(r.balance),
+
+      // TRUE if a payment exists
+      amount_paid_flag: paidSet.has(r.schedule_id),
+    }));
+
+    console.log("Merged schedule:", mapped);
+
+    setSelectedSchedule(mapped);
+  } catch (err: any) {
+    console.error("Error fetching schedule:", err);
+    alert(`Failed to load schedule: ${err.message ?? err}`);
+    setShowSchedule(false);
+  } finally {
+    setLoadingSchedule(false);
+  }
+};
+
 
   // Delete loan (optimistic)
   const handleDeleteLoan = async (loanId: number) => {
@@ -411,6 +434,7 @@ const LoansManagement: React.FC<LoansManagementProps> = ({onCreateNewLoan}) => {
                           <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Principal</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Interest</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remaining Balance</th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white/50 divide-y divide-slate-200">
@@ -420,15 +444,64 @@ const LoansManagement: React.FC<LoansManagementProps> = ({onCreateNewLoan}) => {
                           <tr><td colSpan={6} className="p-6 text-center text-slate-500">No schedule found for this loan.</td></tr>
                         ) : (
                           selectedSchedule.map((payment) => (
-                            <tr key={`${payment.schedule_id}-${payment.payment_no}`} className="hover:bg-slate-50/80 transition-colors duration-150">
-                              <td className="px-6 py-4 whitespace-nowrap"><span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-indigo-100 to-blue-100 text-indigo-800 border border-indigo-200">#{payment.payment_no}</span></td>
-                              <td className="px-6 py-4 whitespace-nowrap"><div className="flex items-center"><CalendarIcon className="w-4 h-4 text-slate-400 mr-2" /><span className="text-sm font-medium text-slate-900">{new Date(payment.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span></div></td>
-                              <td className="px-6 py-4 whitespace-nowrap"><div className="flex items-center"><span className="text-sm font-bold text-slate-900">{formatCurrency(payment.amortization)}</span></div></td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{formatCurrency(payment.principal)}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{formatCurrency(payment.interest)}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{formatCurrency(payment.balance)}</td>
+                            <tr
+                              className={`
+                                transition-colors duration-150
+                                ${payment.amount_paid_flag
+                                  ? 'bg-rose-100 border-l-4 border-rose-500'
+                                  : 'hover:bg-slate-50/80'}
+                              `}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-indigo-100 to-blue-100 text-indigo-800 border border-indigo-200">
+                                  #{payment.payment_no}
+                                </span>
+                              </td>
+
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <CalendarIcon className="w-4 h-4 text-slate-400 mr-2" />
+                                  <span className="text-sm font-medium text-slate-900">
+                                    {new Date(payment.due_date).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })}
+                                  </span>
+                                </div>
+                              </td>
+
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="text-sm font-bold text-slate-900">
+                                  {formatCurrency(payment.amortization)}
+                                </span>
+                              </td>
+
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                {formatCurrency(payment.principal)}
+                              </td>
+
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                {formatCurrency(payment.interest)}
+                              </td>
+
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                {formatCurrency(payment.balance)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                  {payment.amount_paid_flag ? (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
+                                      Paid
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
+                                      Unpaid
+                                    </span>
+                                  )}
+                              </td>
                             </tr>
                           ))
+
                         )}
                       </tbody>
                     </table>
