@@ -82,3 +82,20 @@ export interface DashboardStats {
   total_collected: number;
   monthly_collection: number;
 }
+
+export interface Allocation {
+  creditor_id: number;
+  amount_allocated: number | string;
+}
+
+export interface CreateLoanInput {
+  debtor_id: number;
+  principal_amount: number;
+  date_released: string;
+  interest_rate_monthly: number;
+  loan_term_months: number;
+  frequency_of_collection: 'daily' | 'weekly' | 'monthly';
+  start_date: string;
+  calculation: LoanCalculation;
+  allocations: Allocation[]; // NEW
+}

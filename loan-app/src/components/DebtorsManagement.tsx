@@ -308,8 +308,50 @@ const DebtorsManagement: React.FC = () => {
                     <div className="space-y-3">{loansForDebtor.map((ln) => (
                       <div key={ln.loan_id} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center">
                         <div>
-                          <div className="text-sm font-semibold">{ln.creditor ? `${ln.creditor.first_name} ${ln.creditor.last_name}` : '—'}</div>
-                          <div className="text-xs text-slate-500">{ln.frequency_of_collection} • {ln.loan_term_months} months</div>
+                          <div>
+                            <div>
+                              {/* Case: multi creditor */}
+                              {(() => {
+                                const allocs = (ln as any).allocations ?? [];
+
+                                if (allocs.length > 0) {
+                                  return (
+                                    <div className="space-y-1">
+                                      {allocs.map((a: any, i: number) => (
+                                        <div key={i} className="text-sm font-semibold">
+                                          {a.creditors.first_name} {a.creditors.last_name}
+                                          <span className="text-xs text-slate-500">
+                                            {" • "}Allocated: {formatCurrency(a.amount_allocated)}
+                                          </span>
+                                          <div className="text-xs text-slate-500">
+                                            {ln.frequency_of_collection} • {ln.loan_term_months} months
+                                        </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                }
+
+                                // Case: single creditor
+                                if (ln.creditor) {
+                                  return (
+                                    <>
+                                    <div className="text-sm font-semibold">
+                                      {ln.creditor.first_name} {ln.creditor.last_name}
+                                    </div>
+                                    <div className="text-xs text-slate-500">
+                                      {ln.frequency_of_collection} • {ln.loan_term_months} months
+                                   </div>
+                            </>
+                                  );
+                                }
+
+                                return <div className="text-sm text-slate-500">—</div>;
+                              })()}
+                            </div>
+
+                            
+                          </div>
                         </div>
                         <div className="text-right">
                           <div className="text-sm font-bold">{formatCurrency(ln.principal_amount)}</div>

@@ -32,42 +32,101 @@ const LoansManagement: React.FC<LoansManagementProps> = ({onCreateNewLoan}) => {
 
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [adminEmail, setAdminEmail] = useState<string>("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) {
+        setAdminEmail(data.user.email);
+      }
+    });
+  }, []);
 
   // Fetch loans with debtor + creditor in one query
   const fetchLoans = useCallback(async () => {
-    setLoadingLoans(true);
-    try {
-      const { data, error } = await supabase
-        .from('loans')
-        .select('*, debtors(*), creditors(*)')
-        .order('loan_id', { ascending: true });
+  setLoadingLoans(true);
 
-      if (error) throw error;
+  try {
+    // 1. Fetch loans + debtor only
+    const { data: loanRows, error: loanErr } = await supabase
+      .from("loans")
+      .select(`
+        *,
+        debtors(*)
+      `)
+      .order("loan_id", { ascending: true });
 
-      const mapped: Loan[] = (data || []).map((row: any) => ({
-        loan_id: Number(row.loan_id),
-        debtor_id: Number(row.debtor_id),
-        creditor_id: Number(row.creditor_id),
-        principal_amount: Number(row.principal_amount),
-        date_released: row.date_released,
-        interest_rate_monthly: Number(row.interest_rate_monthly),
-        loan_term_months: Number(row.loan_term_months),
-        frequency_of_collection: row.frequency_of_collection,
-        start_date: row.start_date,
-        status: row.status,
-        debtor: row.debtors ?? row.debtor ?? null,
-        creditor: row.creditors ?? row.creditor ?? null
-      }));
+    if (loanErr) throw loanErr;
 
-      setLoans(mapped);
-    } catch (err: any) {
-      console.error('Error fetching loans:', err);
-      // lightweight production-friendly notification
-      alert(`Failed to load loans: ${err.message ?? err}`);
-    } finally {
-      setLoadingLoans(false);
-    }
-  }, []);
+    // 2. Fetch allocations (multi-creditor)
+    const { data: allocRows, error: allocErr } = await supabase
+      .from("loan_creditor_allocations")
+      .select(`
+        loan_id,
+        amount_allocated,
+        creditors(*)
+      `);
+
+    if (allocErr) throw allocErr;
+
+    // 3. Fetch SINGLE creditors for legacy loans
+    const { data: singleCredRows } = await supabase
+      .from("creditors")
+      .select("*");
+
+    const singleCredMap: Record<number, any> = {};
+    singleCredRows?.forEach(c => {
+      singleCredMap[c.creditor_id] = c;
+    });
+
+    // 4. Group allocations per loan
+    const allocMap: Record<number, any[]> = {};
+    allocRows?.forEach(row => {
+      if (!allocMap[row.loan_id]) allocMap[row.loan_id] = [];
+      allocMap[row.loan_id].push({
+        amount_allocated: row.amount_allocated,
+        ...row.creditors
+      });
+    });
+
+    // 5. FINAL — Build Loan objects cleanly
+    const mapped: Loan[] = loanRows.map((loan: any) => ({
+      loan_id: loan.loan_id,
+      debtor_id: loan.debtor_id,
+      creditor_id: loan.creditor_id, // legacy
+      principal_amount: loan.principal_amount,
+      date_released: loan.date_released,
+      interest_rate_monthly: loan.interest_rate_monthly,
+      loan_term_months: loan.loan_term_months,
+      frequency_of_collection: loan.frequency_of_collection,
+      start_date: loan.start_date,
+      status: loan.status,
+      debtor: loan.debtors,
+
+      // multi-creditor list
+      creditors: allocMap[loan.loan_id] ?? [],
+
+      // legacy single creditor
+      creditor: singleCredMap[loan.creditor_id] ?? null,
+
+      // alias for table rendering (optional)
+      allocations: allocMap[loan.loan_id] ?? []
+    }));
+
+    setLoans(mapped);
+  } catch (err: any) {
+    console.error("Error fetching loans:", err);
+    alert(err.message);
+  } finally {
+    setLoadingLoans(false);
+  }
+}, []);
+
+
 
   useEffect(() => {
     fetchLoans();
@@ -194,8 +253,7 @@ const handleViewSchedule = async (loan: Loan) => {
 
   // Delete loan (optimistic)
   const handleDeleteLoan = async (loanId: number) => {
-    const confirmed = window.confirm('Are you sure you want to delete this loan? This will also delete its schedules and payments.');
-    if (!confirmed) return;
+    
 
     setActionLoading(true);
 
@@ -203,18 +261,23 @@ const handleViewSchedule = async (loan: Loan) => {
     setLoans((cur) => cur.filter((l) => l.loan_id !== loanId));
 
     try {
-      const { error } = await supabase.from('loans').delete().eq('loan_id', loanId);
+      // call RPC instead of direct delete
+      const { error } = await supabase.rpc("delete_loan_fully", {
+        p_loan_id: loanId,
+      });
+
       if (error) throw error;
-      // Refresh to ensure state consistency
+
       await fetchLoans();
     } catch (err: any) {
-      console.error('Delete loan failed:', err);
+      console.error("Delete loan failed:", err);
       alert(`Failed to delete loan: ${err.message ?? err}`);
       setLoans(previous);
     } finally {
       setActionLoading(false);
     }
   };
+
 
   // Edit loan placeholder
   const handleEditLoan = (loan: Loan) => {
@@ -316,14 +379,51 @@ const handleViewSchedule = async (loan: Loan) => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-3">{loan.creditor?.first_name?.charAt(0) ?? '-'}</div>
-                          <div>
-                            <div className="text-sm font-semibold text-slate-900">{loan.creditor?.first_name} {loan.creditor?.last_name}</div>
-                            <div className="text-sm text-slate-500">{loan.creditor?.email}</div>
-                          </div>
-                        </div>
+                        {(() => {
+                          const allocs = (loan as any).allocations ?? [];
+                          const multi = (loan as any).creditors ?? [];
+
+                          // Case 1: multi-creditor loans
+                          if (multi.length > 0) {
+                            return (
+                              <div className="space-y-1">
+                                {multi.map((c: any, index: number) => (
+                                  <div key={index} className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-green-500/80 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                                      {c.first_name?.charAt(0)}
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold">{c.first_name} {c.last_name}</div>
+                                      <div className="text-xs text-slate-500">
+                                        Allocated: {formatCurrency(c.amount_allocated)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+
+                          // Case 2: single creditor (old loans)
+                          if (loan.creditor) {
+                            return (
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-blue-500/80 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                                  {loan.creditor.first_name?.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="font-semibold">{loan.creditor.first_name} {loan.creditor.last_name}</div>
+                                  <div className="text-xs text-slate-500">{loan.creditor.email}</div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // Case 3: no creditor at all
+                          return <div className="text-sm text-slate-500">-</div>;
+                        })()}
                       </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-bold text-slate-900">{formatCurrency(loan.principal_amount)}</div>
                       </td>
@@ -342,7 +442,16 @@ const handleViewSchedule = async (loan: Loan) => {
                           <button onClick={() => handleViewLoan(loan)} className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200" title="View Details"><EyeIcon className="w-4 h-4" /></button>
                           <button onClick={() => handleViewSchedule(loan)} className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors duration-200" title="View Schedule"><CalendarIcon className="w-4 h-4" /></button>
                           <button onClick={() => handleEditLoan(loan)} className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors duration-200" title="Edit Loan"><PencilIcon className="w-4 h-4" /></button>
-                          <button onClick={() => handleDeleteLoan(loan.loan_id)} className="p-2 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors duration-200" disabled={actionLoading} title="Delete Loan"><TrashIcon className="w-4 h-4" /></button>
+                          <button
+                            onClick={() => {
+                              setLoanToDelete(loan);
+                              setShowDeleteModal(true);
+                            }}
+                            className="p-2 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors duration-200"
+                            title="Delete Loan"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -517,6 +626,74 @@ const handleViewSchedule = async (loan: Loan) => {
           </div>
         )}
       </div>
+          {showDeleteModal && loanToDelete && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-white shadow-2xl rounded-2xl w-96 p-6 animate-fadeIn">
+
+                <h2 className="text-xl font-bold text-slate-900 mb-3">
+                  Confirm Delete Loan #{loanToDelete.loan_id}
+                </h2>
+
+                <p className="text-slate-600 text-sm mb-4">
+                  To confirm, please enter your password.
+                </p>
+
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => {
+                    setDeletePassword(e.target.value);
+                    setDeleteError(null);
+                  }}
+                  placeholder="Enter your admin password"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+                />
+
+                {deleteError && (
+                  <p className="text-sm text-rose-600 mt-2">{deleteError}</p>
+                )}
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setDeletePassword("");
+                      setDeleteError(null);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      // 🔐 1. Check password with Supabase Auth
+                      const { error: authError } = await supabase.auth.signInWithPassword({
+                        email: adminEmail,
+                        password: deletePassword,
+                      });
+
+                      if (authError) {
+                        setDeleteError("Incorrect password.");
+                        return;
+                      }
+
+                      // 🔥 2. Password correct → proceed to delete
+                      setDeleteError(null);
+                      setShowDeleteModal(false);
+                      setDeletePassword("");
+
+                      await handleDeleteLoan(loanToDelete.loan_id);
+                      setLoanToDelete(null);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition shadow-md"
+                  >
+                    Delete Permanently
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
     </div>
   );
 };

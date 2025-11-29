@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChartBarIcon,
   DocumentTextIcon,
@@ -7,77 +7,99 @@ import {
   ArrowTrendingDownIcon,
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
-import { mockLoans, mockDebtors, mockCreditors } from '../data/mockData';
+
 import { formatCurrency } from '../utils/loanCalculations';
+import { fetchAllReportsData } from '../services/reportsService';
 
 const Reports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState<string>('overview');
   const [dateRange, setDateRange] = useState<string>('all');
 
-  // Calculate various statistics
-  const totalLoans = mockLoans.length;
-  const activeLoans = mockLoans.filter(loan => loan.status === 'Ongoing').length;
-  const completedLoans = mockLoans.filter(loan => loan.status === 'Completed').length;
-  const defaultedLoans = mockLoans.filter(loan => loan.status === 'Defaulted').length;
-  
-  const totalPrincipal = mockLoans.reduce((sum, loan) => sum + loan.principal_amount, 0);
-  const activePrincipal = mockLoans
-    .filter(loan => loan.status === 'Ongoing')
-    .reduce((sum, loan) => sum + loan.principal_amount, 0);
-  
-  // const totalDebtors = mockDebtors.length;
-  // const totalCreditors = mockCreditors.length;
+  const [loans, setLoans] = useState<any[]>([]);
+  const [debtors, setDebtors] = useState<any[]>([]);
+  const [creditors, setCreditors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Calculate monthly trends
+  // Load real data from Supabase
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { loans, debtors, creditors } = await fetchAllReportsData();
+        setLoans(loans);
+        setDebtors(debtors);
+        setCreditors(creditors);
+      } catch (err) {
+        console.error('Failed to load reports data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  // 🟦 Show loading indicator
+  if (loading) {
+    return (
+      <div className="min-h-screen flex justify-center items-center text-slate-700">
+        Loading reports...
+      </div>
+    );
+  }
+
+  // -----------------------------
+  // 🔹 REAL DATA CALCULATIONS
+  // -----------------------------
+  const totalLoans = loans.length;
+  const activeLoans = loans.filter(loan => loan.status === 'Ongoing').length;
+  const completedLoans = loans.filter(loan => loan.status === 'Completed').length;
+  const defaultedLoans = loans.filter(loan => loan.status === 'Defaulted').length;
+
+  const totalPrincipal = loans.reduce((sum, loan) => sum + Number(loan.principal_amount), 0);
+  const activePrincipal = loans
+    .filter(loan => loan.status === 'Ongoing')
+    .reduce((sum, loan) => sum + Number(loan.principal_amount), 0);
+
+  // Monthly trends
   const getMonthlyData = () => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthlyData = months.map((month, index) => {
-      const monthLoans = mockLoans.filter(loan => {
-        const loanDate = new Date(loan.date_released);
-        return loanDate.getMonth() === index;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    return months.map((month, index) => {
+      const monthLoans = loans.filter(loan => {
+        const d = new Date(loan.date_released);
+        return d.getMonth() === index;
       });
+
       return {
         month,
         loans: monthLoans.length,
-        amount: monthLoans.reduce((sum, loan) => sum + loan.principal_amount, 0)
+        amount: monthLoans.reduce((s, loan) => s + Number(loan.principal_amount), 0)
       };
     });
-    return monthlyData;
   };
 
   const monthlyData = getMonthlyData();
 
-  // Get top debtors by amount borrowed
-  const getTopDebtors = () => {
-    const debtorStats = mockDebtors.map(debtor => {
-      const debtorLoans = mockLoans.filter(loan => loan.debtor_id === debtor.debtor_id);
-      const totalBorrowed = debtorLoans.reduce((sum, loan) => sum + loan.principal_amount, 0);
-      return {
-        name: debtor.name,
-        totalBorrowed,
-        loanCount: debtorLoans.length
-      };
-    });
-    return debtorStats.sort((a, b) => b.totalBorrowed - a.totalBorrowed).slice(0, 5);
-  };
+  // Top Debtors
+  const topDebtors = debtors.map(d => {
+    const dLoans = loans.filter(l => l.debtor_id === d.debtor_id);
+    return {
+      name: d.name,
+      totalBorrowed: dLoans.reduce((s, l) => s + Number(l.principal_amount), 0),
+      loanCount: dLoans.length
+    };
+  }).sort((a, b) => b.totalBorrowed - a.totalBorrowed).slice(0, 5);
 
-  // Get top creditors by amount lent
-  const getTopCreditors = () => {
-    const creditorStats = mockCreditors.map(creditor => {
-      const creditorLoans = mockLoans.filter(loan => loan.creditor_id === creditor.creditor_id);
-      const totalLent = creditorLoans.reduce((sum, loan) => sum + loan.principal_amount, 0);
-      return {
-        name: `${creditor.first_name} ${creditor.last_name}`,
-        totalLent,
-        loanCount: creditorLoans.length
-      };
-    });
-    return creditorStats.sort((a, b) => b.totalLent - a.totalLent).slice(0, 5);
-  };
+  // Top Creditors
+  const topCreditors = creditors.map(c => {
+    const cLoans = loans.filter(l => l.creditor_id === c.creditor_id);
+    return {
+      name: `${c.first_name} ${c.last_name}`,
+      totalLent: cLoans.reduce((s, l) => s + Number(l.principal_amount), 0),
+      loanCount: cLoans.length
+    };
+  }).sort((a, b) => b.totalLent - a.totalLent).slice(0, 5);
 
-  const topDebtors = getTopDebtors();
-  const topCreditors = getTopCreditors();
-
+  // (UI renders here — no need to modify)
   const renderOverviewReport = () => (
     <div className="space-y-8">
       {/* Key Metrics */}
@@ -290,7 +312,7 @@ const Reports: React.FC = () => {
                   {((completedLoans / totalLoans) * 100).toFixed(1)}%
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
-                  {formatCurrency(mockLoans.filter(loan => loan.status === 'Completed').reduce((sum, loan) => sum + loan.principal_amount, 0))}
+                  {formatCurrency(loans.filter(loan => loan.status === 'Completed').reduce((sum, loan) => sum + Number(loan.principal_amount), 0))}
                 </td>
               </tr>
               <tr>
@@ -306,7 +328,7 @@ const Reports: React.FC = () => {
                   {((defaultedLoans / totalLoans) * 100).toFixed(1)}%
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
-                  {formatCurrency(mockLoans.filter(loan => loan.status === 'Defaulted').reduce((sum, loan) => sum + loan.principal_amount, 0))}
+                    {formatCurrency(loans.filter(loan => loan.status === 'Defaulted').reduce((sum, loan) => sum + Number(loan.principal_amount), 0))}
                 </td>
               </tr>
             </tbody>
@@ -403,5 +425,6 @@ const Reports: React.FC = () => {
     </div>
   );
 };
+
 
 export default Reports;

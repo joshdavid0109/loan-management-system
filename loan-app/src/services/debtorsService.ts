@@ -27,12 +27,19 @@ export const fetchDebtorsWithStats = async (): Promise<{ data: DebtorStat[] | nu
 };
 
 /** Fetch loans for a given debtor (includes debtor/creditor join if needed) */
-export const fetchLoansByDebtor = async (debtor_id: number): Promise<{ data: Loan[] | null; error: PostgrestError | null }> => {
+export const fetchLoansByDebtor = async (debtor_id: number) => {
   const { data, error } = await supabase
-    .from('loans')
-    .select('*, creditors(*), repayment_schedule:repayment_schedule(*)') // include creditor and repayment_schedule if you'd like
-    .eq('debtor_id', debtor_id)
-    .order('loan_id', { ascending: true });
+    .from("loans")
+    .select(`
+      *,
+      creditors(*),
+      loan_creditor_allocations(
+        amount_allocated,
+        creditors(*)
+      )
+    `)
+    .eq("debtor_id", debtor_id)
+    .order("loan_id", { ascending: true });
 
   if (error) return { data: null, error };
 
@@ -40,6 +47,7 @@ export const fetchLoansByDebtor = async (debtor_id: number): Promise<{ data: Loa
     loan_id: Number(r.loan_id),
     debtor_id: Number(r.debtor_id),
     creditor_id: Number(r.creditor_id),
+
     principal_amount: Number(r.principal_amount),
     date_released: r.date_released,
     interest_rate_monthly: Number(r.interest_rate_monthly),
@@ -47,12 +55,19 @@ export const fetchLoansByDebtor = async (debtor_id: number): Promise<{ data: Loa
     frequency_of_collection: r.frequency_of_collection,
     start_date: r.start_date,
     status: r.status,
-    debtor: null, // we already know debtor; keep null to match your types
-    creditor: r.creditors ?? undefined,
-  })) as Loan[];
 
-  return { data: mapped, error: null };
+    debtor: null, // no need
+
+    // single legacy creditor
+    creditor: r.creditors ?? null,
+
+    // multi creditor allocations
+    allocations: r.loan_creditor_allocations ?? []
+  }));
+
+  return { data: mapped as Loan[], error: null };
 };
+
 
 /** Create debtor */
 export const createDebtor = async (payload: Omit<Debtor, 'debtor_id'>) => {
@@ -70,4 +85,30 @@ export const updateDebtor = async (debtor_id: number, payload: Partial<Debtor>) 
 export const deleteDebtor = async (debtor_id: number) => {
   const { data, error } = await supabase.from('debtors').delete().eq('debtor_id', debtor_id);
   return { data, error };
+};
+
+
+export const addDebtor = async (debtor: {
+  name: string;
+  contact_info?: string;
+  address?: string;
+}) => {
+  const { data, error } = await supabase
+    .from("debtors")
+    .insert(debtor)
+    .select("debtor_id")
+    .single();
+
+  if (error) throw error;
+  return data.debtor_id;
+};
+
+export const fetchDebtors = async () => {
+  const { data, error } = await supabase
+    .from("debtors")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return data;
 };

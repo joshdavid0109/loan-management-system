@@ -403,7 +403,9 @@ const CreditorsManagement: React.FC = () => {
                             <div className="text-xs text-slate-500">{ln.frequency_of_collection} • {ln.loan_term_months} months</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-bold">{formatCurrency(ln.principal_amount)}</div>
+                            <div className="text-sm font-bold">
+                              {formatCurrency((ln as any).amount_allocated ?? ln.principal_amount)}
+                            </div>
                             <div className="text-xs text-slate-500">{ln.status}</div>
                           </div>
                         </div>
