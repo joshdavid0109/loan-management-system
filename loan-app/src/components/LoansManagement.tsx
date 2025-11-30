@@ -16,8 +16,7 @@ interface LoansManagementProps {
   onCreateNewLoan: () => void;
 }
 
-
-const LoansManagement: React.FC<LoansManagementProps> = ({onCreateNewLoan}) => {
+const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loadingLoans, setLoadingLoans] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,107 +35,108 @@ const LoansManagement: React.FC<LoansManagementProps> = ({onCreateNewLoan}) => {
   const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [adminEmail, setAdminEmail] = useState<string>("");
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
 
+  // -- Load current authenticated user (no re-login) --
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user?.email) {
-        setAdminEmail(data.user.email);
+    const loadUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+
+      if (error || !data.user) {
+        console.warn("No authenticated user found.");
+        setAdminEmail(null);
+        return;
       }
-    });
+
+      setAdminEmail(data.user.email ?? null);
+      console.log("Authenticated user:", data.user.email);
+    };
+
+    void loadUser();
   }, []);
 
   // Fetch loans with debtor + creditor in one query
   const fetchLoans = useCallback(async () => {
-  setLoadingLoans(true);
+    setLoadingLoans(true);
 
-  try {
-    // 1. Fetch loans + debtor only
-    const { data: loanRows, error: loanErr } = await supabase
-      .from("loans")
-      .select(`
-        *,
-        debtors(*)
-      `)
-      .order("loan_id", { ascending: true });
+    try {
+      // 1. Fetch loans + debtor only
+      const { data: loanRows, error: loanErr } = await supabase
+        .from("loans")
+        .select(`
+          *,
+          debtors(*)
+        `)
+        .order("loan_id", { ascending: true });
 
-    if (loanErr) throw loanErr;
+      if (loanErr) throw loanErr;
 
-    // 2. Fetch allocations (multi-creditor)
-    const { data: allocRows, error: allocErr } = await supabase
-      .from("loan_creditor_allocations")
-      .select(`
-        loan_id,
-        amount_allocated,
-        creditors(*)
-      `);
+      // 2. Fetch allocations (multi-creditor)
+      const { data: allocRows, error: allocErr } = await supabase
+        .from("loan_creditor_allocations")
+        .select(`
+          loan_id,
+          amount_allocated,
+          creditors(*)
+        `);
 
-    if (allocErr) throw allocErr;
+      if (allocErr) throw allocErr;
 
-    // 3. Fetch SINGLE creditors for legacy loans
-    const { data: singleCredRows } = await supabase
-      .from("creditors")
-      .select("*");
+      // 3. Fetch SINGLE creditors for legacy loans
+      const { data: singleCredRows } = await supabase
+        .from("creditors")
+        .select("*");
 
-    const singleCredMap: Record<number, any> = {};
-    singleCredRows?.forEach(c => {
-      singleCredMap[c.creditor_id] = c;
-    });
-
-    // 4. Group allocations per loan
-    const allocMap: Record<number, any[]> = {};
-    allocRows?.forEach(row => {
-      if (!allocMap[row.loan_id]) allocMap[row.loan_id] = [];
-      allocMap[row.loan_id].push({
-        amount_allocated: row.amount_allocated,
-        ...row.creditors
+      const singleCredMap: Record<number, any> = {};
+      singleCredRows?.forEach(c => {
+        singleCredMap[c.creditor_id] = c;
       });
-    });
 
-    // 5. FINAL — Build Loan objects cleanly
-    const mapped: Loan[] = loanRows.map((loan: any) => ({
-      loan_id: loan.loan_id,
-      debtor_id: loan.debtor_id,
-      creditor_id: loan.creditor_id, // legacy
-      principal_amount: loan.principal_amount,
-      date_released: loan.date_released,
-      interest_rate_monthly: loan.interest_rate_monthly,
-      loan_term_months: loan.loan_term_months,
-      frequency_of_collection: loan.frequency_of_collection,
-      start_date: loan.start_date,
-      status: loan.status,
-      debtor: loan.debtors,
+      // 4. Group allocations per loan
+      const allocMap: Record<number, any[]> = {};
+      allocRows?.forEach(row => {
+        if (!allocMap[row.loan_id]) allocMap[row.loan_id] = [];
+        allocMap[row.loan_id].push({
+          amount_allocated: row.amount_allocated,
+          ...row.creditors
+        });
+      });
 
-      // multi-creditor list
-      creditors: allocMap[loan.loan_id] ?? [],
+      // 5. FINAL — Build Loan objects cleanly
+      const mapped: Loan[] = (loanRows ?? []).map((loan: any) => ({
+        loan_id: loan.loan_id,
+        debtor_id: loan.debtor_id,
+        creditor_id: loan.creditor_id, // legacy
+        principal_amount: loan.principal_amount,
+        date_released: loan.date_released,
+        interest_rate_monthly: loan.interest_rate_monthly,
+        loan_term_months: loan.loan_term_months,
+        frequency_of_collection: loan.frequency_of_collection,
+        start_date: loan.start_date,
+        status: loan.status,
+        debtor: loan.debtors,
 
-      // legacy single creditor
-      creditor: singleCredMap[loan.creditor_id] ?? null,
+        // multi-creditor list
+        creditors: allocMap[loan.loan_id] ?? [],
 
-      // alias for table rendering (optional)
-      allocations: allocMap[loan.loan_id] ?? []
-    }));
+        // legacy single creditor
+        creditor: singleCredMap[loan.creditor_id] ?? null,
 
-    setLoans(mapped);
-  } catch (err: any) {
-    console.error("Error fetching loans:", err);
-    alert(err.message);
-  } finally {
-    setLoadingLoans(false);
-  }
-}, []);
+        // alias for table rendering (optional)
+        allocations: allocMap[loan.loan_id] ?? []
+      }));
 
-
+      setLoans(mapped);
+    } catch (err: any) {
+      console.error("Error fetching loans:", err);
+      alert(err.message ?? String(err));
+    } finally {
+      setLoadingLoans(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchLoans();
-
-    // Optional: subscribe to realtime updates (if you enabled Realtime)
-    // const subscription = supabase
-    //   .channel('public:loans')
-    //   .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, () => fetchLoans())
-    //   .subscribe();
-    // return () => { void supabase.removeChannel(subscription); };
+    void fetchLoans();
   }, [fetchLoans]);
 
   // Derived / filtered loans
@@ -193,68 +193,113 @@ const LoansManagement: React.FC<LoansManagementProps> = ({onCreateNewLoan}) => {
   };
 
   // Fetch schedule on demand
-const handleViewSchedule = async (loan: Loan) => {
-  setSelectedLoan(loan);
-  setShowSchedule(true);
-  setLoadingSchedule(true);
-  setSelectedSchedule([]);
+  const handleViewSchedule = async (loan: Loan) => {
+    setSelectedLoan(loan);
+    setShowSchedule(true);
+    setLoadingSchedule(true);
+    setSelectedSchedule([]);
 
+    try {
+      // 1. Fetch schedules
+      const { data: scheduleData, error: scheduleErr } = await supabase
+        .from("repayment_schedule")
+        .select("*")
+        .eq("loan_id", loan.loan_id)
+        .order("payment_no", { ascending: true });
+
+      if (scheduleErr) throw scheduleErr;
+
+      // 2. Fetch payments (for the current loan only)
+      const { data: paymentsData, error: paymentsErr } = await supabase
+        .from("payments")
+        .select("schedule_id")
+        .eq("loan_id", loan.loan_id);
+
+      if (paymentsErr) throw paymentsErr;
+
+      // 3. Build a lookup: schedule_id -> payment_no
+      const scheduleIdToPaymentNo = new Map<number, number>();
+      (scheduleData ?? []).forEach((s: any) => {
+        scheduleIdToPaymentNo.set(s.schedule_id, s.payment_no);
+      });
+
+      // 4. Convert payment schedule_ids into payment_no
+      const paidPaymentNumbers = new Set<number>();
+      (paymentsData ?? []).forEach((p: any) => {
+        const paymentNo = scheduleIdToPaymentNo.get(p.schedule_id);
+        if (paymentNo !== undefined) paidPaymentNumbers.add(paymentNo);
+      });
+
+      // 5. Merge everything
+      const mergedSchedule = (scheduleData ?? []).map((s: any) => ({
+        ...s,
+        amortization: Number(s.amortization),
+        principal: Number(s.principal),
+        interest: Number(s.interest),
+        balance: Number(s.balance),
+        amount_paid_flag: paidPaymentNumbers.has(s.payment_no),
+      }));
+
+      setSelectedSchedule(mergedSchedule);
+    } catch (err: any) {
+      console.error("Schedule error:", err);
+      alert(err.message ?? String(err));
+      setShowSchedule(false);
+    } finally {
+      setLoadingSchedule(false);
+    }
+  };
+
+  // Verify password for currently logged-in user using the /auth/v1/verify endpoint.
+  // This avoids calling signInWithPassword when already authenticated.
+const verifyCurrentUserPassword = async (password: string) => {
   try {
-    // 1. Fetch schedules
-    const { data: scheduleData, error: scheduleErr } = await supabase
-      .from("repayment_schedule")
-      .select("*")
-      .eq("loan_id", loan.loan_id)
-      .order("payment_no", { ascending: true });
+    // get current user
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user?.email) {
+      return { ok: false, message: "Not authenticated" };
+    }
 
-    if (scheduleErr) throw scheduleErr;
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    // 2. Fetch payments (for the current loan only)
-    const { data: paymentsData, error: paymentsErr } = await supabase
-      .from("payments")
-      .select("schedule_id")
-      .eq("loan_id", loan.loan_id);
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.error("Missing env vars");
+      return { ok: false, message: "Configuration error" };
+    }
 
-    if (paymentsErr) throw paymentsErr;
+    // 🔥 Call password grant — this does NOT replace the current session
+    const res = await fetch(
+      `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: userData.user.email,
+          password,
+        }),
+      }
+    );
 
-    // 3. Build a lookup: schedule_id -> payment_no
-    const scheduleIdToPaymentNo = new Map<number, number>();
-    scheduleData.forEach((s: any) => {
-      scheduleIdToPaymentNo.set(s.schedule_id, s.payment_no);
-    });
+    if (!res.ok) {
+      return { ok: false, message: "Incorrect password" };
+    }
 
-    // 4. Convert payment schedule_ids into payment_no
-    const paidPaymentNumbers = new Set<number>();
-    paymentsData.forEach((p: any) => {
-      const paymentNo = scheduleIdToPaymentNo.get(p.schedule_id);
-      if (paymentNo !== undefined) paidPaymentNumbers.add(paymentNo);
-    });
-
-    // 5. Merge everything
-    const mergedSchedule = scheduleData.map((s: any) => ({
-      ...s,
-      amortization: Number(s.amortization),
-      principal: Number(s.principal),
-      interest: Number(s.interest),
-      balance: Number(s.balance),
-      amount_paid_flag: paidPaymentNumbers.has(s.payment_no),
-    }));
-
-    setSelectedSchedule(mergedSchedule);
+    // Password is valid!
+    return { ok: true };
   } catch (err: any) {
-    console.error("Schedule error:", err);
-    alert(err.message);
-    setShowSchedule(false);
-  } finally {
-    setLoadingSchedule(false);
+    console.error("verifyCurrentUserPassword error:", err);
+    return { ok: false, message: err?.message ?? "Unknown error" };
   }
 };
 
 
+
   // Delete loan (optimistic)
   const handleDeleteLoan = async (loanId: number) => {
-    
-
     setActionLoading(true);
 
     const previous = loans;
@@ -278,12 +323,39 @@ const handleViewSchedule = async (loan: Loan) => {
     }
   };
 
+  // Called when user confirms deletion in modal
+  const confirmDeleteClick = async () => {
+    setDeleteError(null);
 
-  // Edit loan placeholder
-  const handleEditLoan = (loan: Loan) => {
-    // Implement edit modal and update API call (supabase.from('loans').update(...).eq('loan_id', loan.loan_id))
-    alert(`Edit loan ${loan.loan_id} - implement update modal or navigation.`);
+    if (!loanToDelete) return;
+
+    // ensure we have an authenticated user
+    if (!adminEmail) {
+      setDeleteError("No authenticated admin found.");
+      return;
+    }
+
+    if (!deletePassword) {
+      setDeleteError("Please enter your password.");
+      return;
+    }
+
+    // Verify password using current session
+    const result = await verifyCurrentUserPassword(deletePassword);
+
+    if (!result.ok) {
+      setDeleteError(result.message ?? "Incorrect password.");
+      return;
+    }
+
+    // password OK -> proceed to delete
+    setShowDeleteModal(false);
+    setDeletePassword("");
+    await handleDeleteLoan(loanToDelete.loan_id);
+    setLoanToDelete(null);
   };
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8">
@@ -301,7 +373,7 @@ const handleViewSchedule = async (loan: Loan) => {
             >
               <PlusIcon className="w-5 h-5 mr-2" />
               New Loan
-          </button>
+            </button>
           </div>
         </div>
 
@@ -441,7 +513,6 @@ const handleViewSchedule = async (loan: Loan) => {
                         <div className="flex space-x-2">
                           <button onClick={() => handleViewLoan(loan)} className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200" title="View Details"><EyeIcon className="w-4 h-4" /></button>
                           <button onClick={() => handleViewSchedule(loan)} className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors duration-200" title="View Schedule"><CalendarIcon className="w-4 h-4" /></button>
-                          <button onClick={() => handleEditLoan(loan)} className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors duration-200" title="Edit Loan"><PencilIcon className="w-4 h-4" /></button>
                           <button
                             onClick={() => {
                               setLoanToDelete(loan);
@@ -551,61 +622,60 @@ const handleViewSchedule = async (loan: Loan) => {
                           <tr><td colSpan={6} className="p-6 text-center text-slate-500">No schedule found for this loan.</td></tr>
                         ) : (
                           selectedSchedule.map((payment) => (
-  <tr
-    key={`${payment.schedule_id}-${payment.payment_no}`}
-    className="transition-colors duration-150 hover:bg-slate-50/80"
-  >
-    <td className="px-6 py-4 whitespace-nowrap">
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-indigo-100 to-blue-100 text-indigo-800 border border-indigo-200">
-        #{payment.payment_no}
-      </span>
-    </td>
+                            <tr
+                              key={`${payment.schedule_id}-${payment.payment_no}`}
+                              className="transition-colors duration-150 hover:bg-slate-50/80"
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-indigo-100 to-blue-100 text-indigo-800 border border-indigo-200">
+                                  #{payment.payment_no}
+                                </span>
+                              </td>
 
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="flex items-center">
-        <CalendarIcon className="w-4 h-4 text-slate-400 mr-2" />
-        <span className="text-sm font-medium text-slate-900">
-          {new Date(payment.due_date).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </span>
-      </div>
-    </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <CalendarIcon className="w-4 h-4 text-slate-400 mr-2" />
+                                  <span className="text-sm font-medium text-slate-900">
+                                    {new Date(payment.due_date).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })}
+                                  </span>
+                                </div>
+                              </td>
 
-    <td className="px-6 py-4 whitespace-nowrap">
-      <span className="text-sm font-bold text-slate-900">
-        {formatCurrency(payment.amortization)}
-      </span>
-    </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="text-sm font-bold text-slate-900">
+                                  {formatCurrency(payment.amortization)}
+                                </span>
+                              </td>
 
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-      {formatCurrency(payment.principal)}
-    </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                {formatCurrency(payment.principal)}
+                              </td>
 
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-      {formatCurrency(payment.interest)}
-    </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                {formatCurrency(payment.interest)}
+                              </td>
 
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-      {formatCurrency(payment.balance)}
-    </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                {formatCurrency(payment.balance)}
+                              </td>
 
-    <td className="px-6 py-4 whitespace-nowrap">
-      {payment.amount_paid_flag ? (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
-          Paid
-        </span>
-      ) : (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
-          Unpaid
-        </span>
-      )}
-    </td>
-  </tr>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {payment.amount_paid_flag ? (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
+                                    Paid
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
+                                    Unpaid
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
                           ))
-
                         )}
                       </tbody>
                     </table>
@@ -626,74 +696,58 @@ const handleViewSchedule = async (loan: Loan) => {
           </div>
         )}
       </div>
-          {showDeleteModal && loanToDelete && (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-white shadow-2xl rounded-2xl w-96 p-6 animate-fadeIn">
 
-                <h2 className="text-xl font-bold text-slate-900 mb-3">
-                  Confirm Delete Loan #{loanToDelete.loan_id}
-                </h2>
+      {/* Delete Modal */}
+      {showDeleteModal && loanToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white shadow-2xl rounded-2xl w-96 p-6 animate-fadeIn">
+            <h2 className="text-xl font-bold text-slate-900 mb-3">
+              Confirm Delete Loan #{loanToDelete.loan_id}
+            </h2>
 
-                <p className="text-slate-600 text-sm mb-4">
-                  To confirm, please enter your password.
-                </p>
+            <p className="text-slate-600 text-sm mb-4">
+              To confirm, please enter your password.
+            </p>
 
-                <input
-                  type="password"
-                  value={deletePassword}
-                  onChange={(e) => {
-                    setDeletePassword(e.target.value);
-                    setDeleteError(null);
-                  }}
-                  placeholder="Enter your admin password"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
-                />
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={(e) => {
+                setDeletePassword(e.target.value);
+                setDeleteError(null);
+              }}
+              placeholder="Enter your admin password"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+            />
 
-                {deleteError && (
-                  <p className="text-sm text-rose-600 mt-2">{deleteError}</p>
-                )}
+            {deleteError && (
+              <p className="text-sm text-rose-600 mt-2">{deleteError}</p>
+            )}
 
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    onClick={() => {
-                      setShowDeleteModal(false);
-                      setDeletePassword("");
-                      setDeleteError(null);
-                    }}
-                    className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition"
-                  >
-                    Cancel
-                  </button>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletePassword("");
+                  setDeleteError(null);
+                }}
+                className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition"
+              >
+                Cancel
+              </button>
 
-                  <button
-                    onClick={async () => {
-                      // 🔐 1. Check password with Supabase Auth
-                      const { error: authError } = await supabase.auth.signInWithPassword({
-                        email: adminEmail,
-                        password: deletePassword,
-                      });
-
-                      if (authError) {
-                        setDeleteError("Incorrect password.");
-                        return;
-                      }
-
-                      // 🔥 2. Password correct → proceed to delete
-                      setDeleteError(null);
-                      setShowDeleteModal(false);
-                      setDeletePassword("");
-
-                      await handleDeleteLoan(loanToDelete.loan_id);
-                      setLoanToDelete(null);
-                    }}
-                    className="px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition shadow-md"
-                  >
-                    Delete Permanently
-                  </button>
-                </div>
-              </div>
+              <button
+                onClick={async () => {
+                  await confirmDeleteClick();
+                }}
+                className="px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition shadow-md"
+              >
+                Delete Permanently
+              </button>
             </div>
-          )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

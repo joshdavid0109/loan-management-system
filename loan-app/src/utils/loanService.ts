@@ -19,63 +19,50 @@ export interface CreateLoanInput {
   calculation: LoanCalculation;
 }
 
+let savingLock = false;
+
 export const saveLoanWithSchedule = async (input: CreateLoanInput) => {
-  if (!supabase) throw new Error("Supabase not configured");
+  if (savingLock) {
+    console.warn("Duplicate save blocked");
+    return;
+  }
+  savingLock = true;
 
-  // 1) Insert loan
-  const { data: loanInsert, error: loanError } = await supabase
-    .from("loans")
-    .insert([
-      {
-        debtor_id: input.debtor_id,
-        principal_amount: input.principal_amount,
-        date_released: input.date_released,
-        interest_rate_monthly: input.interest_rate_monthly,
-        loan_term_months: input.loan_term_months,
-        frequency_of_collection: input.frequency_of_collection,
-        start_date: input.start_date,
-        status: "Ongoing",
-      },
-    ])
-    .select("loan_id")
-    .single();
+  try {
+    const payload = {
+      debtor_id: input.debtor_id,
+      principal_amount: input.principal_amount,
+      date_released: input.date_released,
+      interest_rate_monthly: input.interest_rate_monthly,
+      loan_term_months: input.loan_term_months,
+      frequency_of_collection: input.frequency_of_collection,
+      start_date: input.start_date,
 
-  if (loanError) throw loanError;
+      schedule: input.calculation.amortization_schedule.map((s) => ({
+        payment_no: s.payment_no,
+        due_date: s.due_date,
+        amortization: s.amortization,
+        principal: s.principal,
+        interest: s.interest,
+        balance: s.balance,
+      })),
 
-  const loanId = loanInsert.loan_id;
+      allocations: input.allocations.map((a) => ({
+        creditor_id: a.creditor_id,
+        amount_allocated: a.amount_allocated,
+      })),
+    };
 
-  // 2) Insert schedule
-  const scheduleRows = input.calculation.amortization_schedule.map((row) => ({
-    loan_id: loanId,
-    payment_no: row.payment_no,
-    due_date: row.due_date,
-    amortization: row.amortization,
-    principal: row.principal,
-    interest: row.interest,
-    balance: row.balance,
-  }));
+    const { data, error } = await supabase.rpc(
+      "create_loan_with_schedule",
+      { p_payload: payload }
+    );
 
-  const { error: schedError } = await supabase
-    .from("repayment_schedule")
-    .insert(scheduleRows);
+    if (error) throw error;
 
-  if (schedError) throw schedError;
+    return data; // new loan_id
 
-  // 3) Insert allocations
-if (input.allocations && input.allocations.length > 0) {
-  const rows = input.allocations.map(a => ({
-    loan_id: loanId,
-    creditor_id: a.creditor_id,
-    amount_allocated: Number(a.amount_allocated)
-  }));
-
-  const { error: allocError } = await supabase
-    .from("loan_creditor_allocations")
-    .insert(rows);
-
-  if (allocError) throw allocError;
-}
-
-
-  return loanId;
+  } finally {
+    savingLock = false;
+  }
 };

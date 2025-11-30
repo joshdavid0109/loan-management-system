@@ -6,6 +6,7 @@ import {
   DocumentTextIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
+import ChangePasswordModal from '../../src/components/ChangePasswordModal';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -22,6 +23,8 @@ const Settings: React.FC = () => {
     maxLoanTerm: 60,
     minLoanTerm: 1
   });
+  const [openPasswordModal, setOpenPasswordModal] = useState(false);
+
 
   const handleSettingChange = (key: string, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -232,9 +235,13 @@ const Settings: React.FC = () => {
             </div>
           </div>
 
-          <button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg">
+         <button 
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl"
+            onClick={() => setOpenPasswordModal(true)}
+          >
             Change Password
           </button>
+
         </div>
       </div>
     </div>
@@ -362,6 +369,10 @@ const Settings: React.FC = () => {
           </div>
         </div>
       </div>
+      <ChangePasswordModal 
+        open={openPasswordModal}
+        onClose={() => setOpenPasswordModal(false)}
+      />
     </div>
   );
 };

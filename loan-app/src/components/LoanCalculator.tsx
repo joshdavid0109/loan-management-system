@@ -175,6 +175,7 @@ const LoanCalculator: React.FC = () => {
 
   // Save -> validate allocations manually (must match principal), then call saveLoanWithSchedule
   const handleSave = async () => {
+    console.log("savebutton)")
     if (!calculation) {
       setAllocError("Calculate loan first before saving.");
       return;
@@ -194,6 +195,7 @@ const LoanCalculator: React.FC = () => {
 
     setAllocError(null);
     try {
+      if (saving) return; // prevent double-submit
       setSaving(true);
       const payload = {
         debtor_id: Number(watched.debtor_id),
