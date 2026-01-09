@@ -270,35 +270,51 @@ const CreditorsManagement: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3">
-                      <div className="text-xs text-slate-600">Total Lent</div>
-                      <div className="text-sm font-bold text-slate-900">
+                  <div className="space-y-3 mb-6">
+                    {/* Total Lent */}
+                    <div className="flex items-center justify-between p-3 rounded-lg
+                                    bg-gradient-to-r from-blue-50 to-indigo-50">
+                      <span className="text-xs sm:text-sm text-slate-600">
+                        Total Lent
+                      </span>
+                      <span className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">
                         {formatCurrency(creditor.total_lent)}
-                      </div>
+                      </span>
                     </div>
 
-                    <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg p-3">
-                      <div className="text-xs text-slate-600">Available</div>
-                      <div className="text-sm font-bold text-emerald-700">
+                    {/* Available */}
+                    <div className="flex items-center justify-between p-3 rounded-lg
+                                    bg-gradient-to-r from-emerald-50 to-green-50">
+                      <span className="text-xs sm:text-sm text-slate-600">
+                        Available
+                      </span>
+                      <span className="text-sm sm:text-base font-bold text-emerald-700 tabular-nums">
                         {formatCurrency(creditor.available)}
-                      </div>
+                      </span>
                     </div>
 
-                    <div className="bg-gradient-to-r from-blue-100 to-sky-100 rounded-lg p-3">
-                      <div className="text-xs text-slate-600">Active</div>
-                      <div className="text-sm font-bold text-slate-900">
+                    {/* Active Loans */}
+                    <div className="flex items-center justify-between p-3 rounded-lg
+                                    bg-gradient-to-r from-blue-100 to-sky-100">
+                      <span className="text-xs sm:text-sm text-slate-600">
+                        Active Loans
+                      </span>
+                      <span className="text-sm sm:text-base font-bold text-slate-900">
                         {creditor.active_loans}
-                      </div>
+                      </span>
                     </div>
 
-                    <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-3">
-                      <div className="text-xs text-slate-600">Completed</div>
-                      <div className="text-sm font-bold text-slate-900">
+                    {/* Completed Loans */}
+                    <div className="flex items-center justify-between p-3 rounded-lg
+                                    bg-gradient-to-r from-amber-50 to-orange-50">
+                      <span className="text-xs sm:text-sm text-slate-600">
+                        Completed Loans
+                      </span>
+                      <span className="text-sm sm:text-base font-bold text-slate-900">
                         {creditor.completed_loans}
-                      </div>
+                      </span>
                     </div>
-                  </div>
+                  </div>                    
 
                   <div className="flex space-x-2">
                     <button
