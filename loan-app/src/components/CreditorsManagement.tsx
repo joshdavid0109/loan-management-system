@@ -96,10 +96,12 @@ const CreditorsManagement: React.FC = () => {
       gender: c.gender,
       phone: c.phone ?? '',
       email: c.email ?? '',
-      address: c.address ?? ''
+      address: c.address ?? '',
+      total_capital: c.total_capital ?? 0
     });
     setShowAddModal(true);
   };
+
 
   const handleDeleteCreditor = async (creditorId: number) => {
     if (!window.confirm('Delete creditor? This will remove the creditor record.')) return;
@@ -136,7 +138,12 @@ const CreditorsManagement: React.FC = () => {
     try {
       if (editingCreditor.creditor_id && editingCreditor.creditor_id > 0) {
         // update
-        const { data, error } = await updateCreditor(editingCreditor.creditor_id, editingCreditor as any);
+      const { creditor_id, ...updatePayload } = editingCreditor;
+
+      const { error } = await updateCreditor(
+        creditor_id!,
+        updatePayload
+      );
         if (error) throw error;
         // refresh
         await loadCreditors();
@@ -152,7 +159,7 @@ const CreditorsManagement: React.FC = () => {
           email: editingCreditor.email ?? null,
           address: editingCreditor.address ?? null
         };
-        const { data, error } = await createCreditor(payload as any);
+        const { error } = await createCreditor(payload as any);
         if (error) throw error;
         // refresh
         await loadCreditors();
@@ -175,10 +182,12 @@ const CreditorsManagement: React.FC = () => {
       gender: 'M',
       phone: '',
       email: '',
-      address: ''
+      address: '',
+      total_capital: 0
     });
     setShowAddModal(true);
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8">
@@ -261,19 +270,28 @@ const CreditorsManagement: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3">
                       <div className="text-xs text-slate-600">Total Lent</div>
                       <div className="text-sm font-bold text-slate-900">
                         {formatCurrency(creditor.total_lent)}
                       </div>
                     </div>
+
                     <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg p-3">
+                      <div className="text-xs text-slate-600">Available</div>
+                      <div className="text-sm font-bold text-emerald-700">
+                        {formatCurrency(creditor.available)}
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-blue-100 to-sky-100 rounded-lg p-3">
                       <div className="text-xs text-slate-600">Active</div>
                       <div className="text-sm font-bold text-slate-900">
                         {creditor.active_loans}
                       </div>
                     </div>
+
                     <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-3">
                       <div className="text-xs text-slate-600">Completed</div>
                       <div className="text-sm font-bold text-slate-900">
@@ -446,6 +464,33 @@ const CreditorsManagement: React.FC = () => {
                       <input type="text" required value={editingCreditor.last_name || ''} onChange={(e) => setEditingCreditor({ ...editingCreditor, last_name: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" placeholder="Enter last name" />
                     </div>
                   </div>
+                  {/* Capital Amount */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Capital Amount to Lend *
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      required
+                      value={editingCreditor.total_capital ?? 0}
+                      onChange={(e) =>
+                        setEditingCreditor({
+                          ...editingCreditor,
+                          total_capital: Number(e.target.value),
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl
+                                focus:outline-none focus:ring-2 focus:ring-blue-500
+                                focus:border-transparent transition-all duration-200"
+                      placeholder="Enter capital amount"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      This is the maximum amount this creditor can lend.
+                    </p>
+                  </div>
+
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Gender *</label>

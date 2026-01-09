@@ -8,6 +8,7 @@ export interface CreditorStat extends Creditor {
   active_loans: number;
   completed_loans: number;
   total_loans: number;
+  available: number;
 }
 
 /**

@@ -75,10 +75,12 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white/95 backdrop-blur-xl border-r border-white/20 shadow-2xl">
-          <div className="flex h-20 items-center px-6 border-b border-slate-200/50">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-              DPE Loan Management
-            </h1>
+          <div className="flex h-20 items-center px-6 border-b border-slate-200/50 justify-center">
+            <img
+              src="https://cwcscejvwfbsrmrjsdxq.supabase.co/storage/v1/object/public/icons/DPE_logo.png"   // put your image in public/
+              alt="DPE Loan Management"
+              className="h-20 w-auto object-contain"
+            />
           </div>
           <nav className="flex-1 space-y-2 px-4 py-6">
             {navigation.map((item) => (

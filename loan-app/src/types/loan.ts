@@ -6,6 +6,7 @@ export interface Creditor {
   phone?: string;
   email?: string;
   address?: string;
+  total_capital: number;
 }
 
 export interface Debtor {

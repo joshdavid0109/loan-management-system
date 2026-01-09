@@ -33,7 +33,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
       // Get logged-in user email
       const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (!user || !user.email) {
         setLoading(false);
         return setError("User is not logged in.");
       }

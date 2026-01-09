@@ -127,7 +127,7 @@ const DebtorsManagement: React.FC = () => {
 
     try {
       if (editingDebtor.debtor_id && editingDebtor.debtor_id > 0) {
-        const { data, error } = await updateDebtor(editingDebtor.debtor_id, editingDebtor as any);
+        const { error } = await updateDebtor(editingDebtor.debtor_id, editingDebtor as any);
         if (error) throw error;
         await loadDebtors();
         setShowAddModal(false);
@@ -138,7 +138,7 @@ const DebtorsManagement: React.FC = () => {
           contact_info: editingDebtor.contact_info ?? null,
           address: editingDebtor.address ?? null
         };
-        const { data, error } = await createDebtor(payload as any);
+        const { error } = await createDebtor(payload as any);
         if (error) throw error;
         await loadDebtors();
         setShowAddModal(false);

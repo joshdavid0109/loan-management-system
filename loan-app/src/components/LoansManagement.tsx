@@ -4,7 +4,6 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   EyeIcon,
-  PencilIcon,
   TrashIcon,
   CalendarIcon
 } from '@heroicons/react/24/outline';
@@ -29,7 +28,6 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
   const [selectedSchedule, setSelectedSchedule] = useState<RepaymentSchedule[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState<boolean>(false);
 
-  const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
@@ -300,7 +298,6 @@ const verifyCurrentUserPassword = async (password: string) => {
 
   // Delete loan (optimistic)
   const handleDeleteLoan = async (loanId: number) => {
-    setActionLoading(true);
 
     const previous = loans;
     setLoans((cur) => cur.filter((l) => l.loan_id !== loanId));
@@ -319,7 +316,6 @@ const verifyCurrentUserPassword = async (password: string) => {
       alert(`Failed to delete loan: ${err.message ?? err}`);
       setLoans(previous);
     } finally {
-      setActionLoading(false);
     }
   };
 
@@ -452,7 +448,6 @@ const verifyCurrentUserPassword = async (password: string) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {(() => {
-                          const allocs = (loan as any).allocations ?? [];
                           const multi = (loan as any).creditors ?? [];
 
                           // Case 1: multi-creditor loans

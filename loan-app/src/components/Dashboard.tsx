@@ -35,7 +35,6 @@ const Dashboard: React.FC = () => {
   const [pieData, setPieData] = useState<{ name: string; value: number; color: string }[]>([]);
   const [recentLoans, setRecentLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingCharts, setLoadingCharts] = useState(true);
 
   // colors for pie
   const PIE_COLORS = ['#6366F1', '#10B981', '#EF4444'];
@@ -64,7 +63,6 @@ const Dashboard: React.FC = () => {
         alert('Failed to load dashboard data. See console for details.');
       } finally {
         setLoading(false);
-        setLoadingCharts(false);
       }
     };
 
@@ -128,11 +126,9 @@ const Dashboard: React.FC = () => {
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-            DPE Loan Management Dashboard
+            Loan Management Dashboard
           </h1>
-          <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-            Comprehensive overview of your loan portfolio performance and financial insights
-          </p>
+
         </div>
 
         {/* Stats Grid */}

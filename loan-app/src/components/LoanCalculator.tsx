@@ -1,13 +1,14 @@
 // src/components/LoanCalculator.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { calculateLoan, formatCurrency, formatPercentage } from "../utils/loanCalculations";
+import type { CreditorStat } from "../services/creditorsService";
 import type { LoanCalculation } from "../types/loan";
 import type { Allocation } from "../types/loan";
 import { saveLoanWithSchedule } from "../utils/loanService";
 import { fetchCreditorsWithStats } from "../services/creditorsService";
 import { supabase } from '../../src/utils/supabaseClient';
-import { addDebtor, fetchDebtors } from "../services/debtorsService";
+import { addDebtor } from "../services/debtorsService";
 
 
 type LoanFormData = {
@@ -77,13 +78,8 @@ const LoanCalculator: React.FC = () => {
 
   const watched = watch();
 
-  // creditors loaded from server
-  const [creditors, setCreditors] = useState<
-    {
-      capital: any;
-      available: any; creditor_id: number; first_name: string; last_name: string; total_lent?: number
-}[]
-  >([]);
+  const [creditors, setCreditors] = useState<CreditorStat[]>([]);
+
 
   useEffect(() => {
   console.log("RAW CREDITORS FROM SUPABASE:", creditors);
@@ -143,21 +139,6 @@ const LoanCalculator: React.FC = () => {
     // keep allocations total in sync (optional)
   };
 
-  const handleCalculate = () => {
-    const data = watched;
-    if (!data.principal || !data.interest_rate_monthly || !data.loan_term_months) return;
-    const result = calculateLoan(
-      Number(data.principal),
-      Number(data.interest_rate_monthly),
-      Number(data.loan_term_months),
-      data.frequency,
-      data.start_date
-    );
-    setCalculation(result);
-    setShowSchedule(false);
-    setCurrentPage(1);
-  };
-
   // pagination derived
   const totalItems = calculation?.amortization_schedule.length ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -193,7 +174,7 @@ const LoanCalculator: React.FC = () => {
       return;
     }
 
-    setAllocError(null);
+      setAllocError(null);
     try {
       if (saving) return; // prevent double-submit
       setSaving(true);
@@ -206,7 +187,10 @@ const LoanCalculator: React.FC = () => {
         frequency_of_collection: watched.frequency,
         start_date: watched.start_date,
         calculation,
-        allocations,
+        allocations: allocations.map(a => ({
+          creditor_id: a.creditor_id,
+          amount_allocated: Number(a.amount_allocated)
+        })),
       };
       const loanId = await saveLoanWithSchedule(payload);
       alert(`Saved! Loan ID: ${loanId}`);
@@ -335,7 +319,11 @@ const LoanCalculator: React.FC = () => {
                   {allocations.map((alloc, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-3 bg-white border border-slate-200 p-3 rounded-xl shadow-sm"
+                      className="
+                        grid grid-cols-1 gap-3
+                        sm:grid-cols-[1fr_140px_auto]
+                        bg-white border border-slate-200 p-3 rounded-xl shadow-sm
+                      "
                     >
                       {/* Creditor dropdown */}
                       <select
@@ -348,7 +336,7 @@ const LoanCalculator: React.FC = () => {
                             return next;
                           });
                         }}
-                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
                       >
                         {creditors.map((c) => (
                           <option key={c.creditor_id} value={c.creditor_id}>
@@ -402,17 +390,17 @@ const LoanCalculator: React.FC = () => {
                             return next;
                           });
                         }}
-                        className="w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                        className="w-full sm:w-32 px-3 py-2 border border-slate-300 rounded-lg text-sm"
                       />
 
                       {/* Remove button with trash icon */}
                       <button
                         type="button"
-                        onClick={() =>
-                          setAllocations((prev) => prev.filter((_, i) => i !== idx))
-                        }
-                        className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
-                        title="Remove allocation"
+                        className="
+                          w-full sm:w-auto
+                          p-2 bg-red-50 hover:bg-red-100
+                          text-red-600 rounded-lg transition
+                        "
                       >
                         🗑️
                       </button>
@@ -458,67 +446,37 @@ const LoanCalculator: React.FC = () => {
 
 
               {/* Actions */}
-              <div className="flex space-x-4 pt-4">
-              {/* Calculate Loan */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
+              {/* Calculate */}
               <button
                 type="submit"
-                disabled={
-                  totalAllocated !== Number(watched.principal) ||
-                  allocations.some(a => !a.creditor_id || Number(a.amount_allocated) <= 0)
-                }
-                className={`flex-1 py-3 px-6 rounded-xl text-white font-semibold shadow-lg
-                  ${
-                    totalAllocated !== Number(watched.principal) ||
-                    allocations.some(a => !a.creditor_id || Number(a.amount_allocated) <= 0)
-                      ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  }`}
+                className="w-full py-3 px-4 sm:px-6
+                          text-sm sm:text-base
+                          rounded-xl font-semibold text-white shadow-lg
+                          bg-gradient-to-r from-blue-600 to-indigo-600
+                          hover:from-blue-700 hover:to-indigo-700"
               >
                 Calculate Loan
               </button>
 
-              {/* Quick Calculate */}
+              {/* Save */}
               <button
                 type="button"
-                disabled={
-                  totalAllocated !== Number(watched.principal) ||
-                  allocations.some(a => !a.creditor_id || Number(a.amount_allocated) <= 0)
-                }
-                onClick={handleCalculate}
-                className={`flex-1 py-3 px-6 rounded-xl text-white font-semibold shadow-lg
-                  ${
-                    totalAllocated !== Number(watched.principal) ||
-                    allocations.some(a => !a.creditor_id || Number(a.amount_allocated) <= 0)
-                      ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800"
-                  }`}
-              >
-                Quick Calculate
-              </button>
-
-              {/* Save Button */}
-              <button
-                type="button"
-                disabled={
-                  !calculation ||
-                  saving ||
-                  totalAllocated !== Number(watched.principal) ||
-                  allocations.some(a => !a.creditor_id || Number(a.amount_allocated) <= 0)
-                }
+                disabled={!calculation || saving}
                 onClick={handleSave}
-                className={`flex-1 py-3 px-6 rounded-xl text-white font-semibold shadow-lg
+                className={`w-full py-3 px-4 sm:px-6
+                  text-sm sm:text-base
+                  rounded-xl font-semibold text-white shadow-lg
                   ${
-                    !calculation ||
-                    saving ||
-                    totalAllocated !== Number(watched.principal) ||
-                    allocations.some(a => !a.creditor_id || Number(a.amount_allocated) <= 0)
+                    !calculation || saving
                       ? "bg-gray-300 cursor-not-allowed"
                       : "bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800"
                   }`}
               >
-                {saving ? "Saving…" : "Save to Supabase"}
+                {saving ? "Saving…" : "Save Loan"}
               </button>
             </div>
+
             </form>
           </div>
 

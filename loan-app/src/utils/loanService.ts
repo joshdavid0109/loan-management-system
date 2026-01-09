@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { LoanCalculation, RepaymentSchedule } from '../types/loan';
+import type { LoanCalculation } from '../types/loan';
 
 export interface CreateLoanInput {
   debtor_id: number;
