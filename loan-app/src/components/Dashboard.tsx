@@ -176,10 +176,22 @@ const Dashboard: React.FC = () => {
               Financial Summary
             </h3>
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-xl">
-                <span className="text-slate-600 font-medium">Total Outstanding</span>
-                <span className="font-bold text-red-600 text-lg">{formatCurrency(s.total_outstanding)}</span>
+              <div className="flex items-center justify-between gap-4 p-5
+                bg-gradient-to-r from-rose-50 to-red-100
+                rounded-xl border border-red-200">
+                <div className="flex items-center gap-3">
+
+                  <div>
+                    <p className="text-xs sm:text-sm text-slate-500">
+                      Total Outstanding
+                    </p>
+                    <p className="text-lg sm:text-xl font-bold text-red-600">
+                      {formatCurrency(s.total_outstanding)}
+                    </p>
+                  </div>
+                </div>
               </div>
+
               <div className="flex justify-between items-center p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl">
                 <span className="text-slate-600 font-medium">Total Collected</span>
                 <span className="font-bold text-emerald-600 text-lg">{formatCurrency(s.total_collected)}</span>

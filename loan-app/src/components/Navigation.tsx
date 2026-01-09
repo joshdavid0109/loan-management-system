@@ -10,6 +10,9 @@ import {
   Bars3Icon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
+import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { supabase } from '../utils/supabaseClient';
+
 
 interface NavigationProps {
   currentPage: string;
@@ -18,6 +21,14 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    // App.tsx will re-render and show Login automatically
+  };
+
+
 
   const navigation = [
     { name: 'Dashboard', href: 'dashboard', icon: HomeIcon, current: currentPage === 'dashboard' },
@@ -68,6 +79,17 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
                 {item.name}
               </button>
             ))}
+            <div className="mt-8 pt-4 border-t border-slate-200/50">
+            <button
+              onClick={handleLogout}
+              className="group flex items-center w-full px-4 py-3 text-sm font-medium
+                        text-rose-600 rounded-xl hover:bg-rose-50 transition-all"
+            >
+              <ArrowRightOnRectangleIcon className="mr-3 h-5 w-5 text-rose-500" />
+              Logout
+            </button>
+          </div>
+
           </nav>
         </div>
       </div>
@@ -101,6 +123,19 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
                 {item.name}
               </button>
             ))}
+            <div className="mt-8 pt-4 border-t border-slate-200/50">
+            <button
+              onClick={() => {
+                setSidebarOpen(false);
+                setShowLogoutModal(true);
+              }}
+              className="group flex items-center w-full px-4 py-3 text-sm font-medium
+                        text-rose-600 rounded-xl hover:bg-rose-50 transition-all"
+            >
+              <ArrowRightOnRectangleIcon className="mr-3 h-5 w-5 text-rose-500" />
+              Logout
+            </button>
+          </div>
           </nav>
         </div>
       </div>
@@ -125,6 +160,48 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
       <div className="lg:pl-72">
         <div className="lg:hidden h-20" /> {/* Spacer for mobile top bar */}
       </div>
+
+      {showLogoutModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+          onClick={() => setShowLogoutModal(false)}
+        />
+
+        {/* Modal */}
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 z-10">
+          <h2 className="text-lg font-semibold text-slate-900 mb-2">
+            Confirm Logout
+          </h2>
+          <p className="text-sm text-slate-600 mb-6">
+            Are you sure you want to log out of your account?
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="flex-1 px-4 py-2 rounded-xl bg-slate-200 text-slate-700
+                        hover:bg-slate-300 transition font-medium"
+            >
+              Cancel
+            </button>
+
+            <button
+              onClick={async () => {
+                setShowLogoutModal(false);
+                await handleLogout();
+              }}
+              className="flex-1 px-4 py-2 rounded-xl bg-rose-600 text-white
+                        hover:bg-rose-700 transition font-medium"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     </>
   );
 };
