@@ -77,7 +77,7 @@ function App() {
       {/* ✅ NAVIGATION ONLY RENDERS WHEN LOGGED IN */}
       <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
 
-      <main className="lg:pl-64">
+      <main className="lg:pl-80 pl-10">
         {renderPage()}
       </main>
     </div>
