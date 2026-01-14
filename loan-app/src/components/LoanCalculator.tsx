@@ -87,9 +87,13 @@ const LoanCalculator: React.FC = () => {
 
 
   // allocations typed properly to avoid TS indexing errors
-  const [allocations, setAllocations] = useState<Allocation[]>(
-    [{ creditor_id: Number(watched.creditor_id ?? 1), amount_allocated: Number(watched.principal ?? 0) }]
-  );
+const [allocations, setAllocations] = useState<Allocation[]>([
+    {
+      id: crypto.randomUUID(),
+      creditor_id: Number(watched.creditor_id ?? 1),
+      amount_allocated: Number(watched.principal ?? 0),
+    },
+  ]);
 
   const [allocError, setAllocError] = useState<string | null>(null);
 
@@ -107,6 +111,7 @@ const LoanCalculator: React.FC = () => {
           // if allocations has a placeholder with creditor 1 and we have a real list, use the first creditor id
           setAllocations((prev) => {
             if (!prev || prev.length === 0) return [{
+              id: crypto.randomUUID(),
               creditor_id: data[0]?.creditor_id ?? 1,
               amount_allocated: Number(watched.principal ?? 0)
             }];
@@ -394,16 +399,31 @@ const LoanCalculator: React.FC = () => {
                       />
 
                       {/* Remove button with trash icon */}
-                      <button
-                        type="button"
-                        className="
-                          w-full sm:w-auto
-                          p-2 bg-red-50 hover:bg-red-100
-                          text-red-600 rounded-lg transition
-                        "
-                      >
-                        🗑️
-                      </button>
+                     <button
+                    type="button"
+                    onClick={() => {
+                      setAllocations(prev => {
+                        // 🚫 Never allow zero allocations      
+                        if (prev.length === 1) {
+                          return [
+                            {
+                              ...prev[0],
+                              amount_allocated: "",
+                            },
+                          ];
+                        }
+
+                        return prev.filter(a => a.id !== alloc.id);
+                      });
+                    }}
+                    className="
+                      w-full sm:w-auto
+                      p-2 bg-red-50 hover:bg-red-100
+                      text-red-600 rounded-lg transition
+                    "
+                  >
+                    🗑️
+                  </button>
                     </div>
                   ))}
 
@@ -416,6 +436,7 @@ const LoanCalculator: React.FC = () => {
                         setAllocations((prev) => [
                           ...prev,
                           {
+                            id: crypto.randomUUID(),
                             creditor_id: creditors[0]?.creditor_id ?? 1,
                             amount_allocated: "",
                           },

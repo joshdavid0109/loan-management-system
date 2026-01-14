@@ -84,10 +84,12 @@ export interface DashboardStats {
   monthly_collection: number;
 }
 
-export interface Allocation {
+export type Allocation = {
+  id: string; // 👈 ADD THIS
   creditor_id: number;
-  amount_allocated: number | string;
-}
+  amount_allocated: number | "";
+};
+
 
 export interface CreateLoanInput {
   debtor_id: number;
