@@ -15,18 +15,23 @@ interface LoansManagementProps {
   onCreateNewLoan: () => void;
 }
 
-const getPaymentStatusStyle = (status: string) => {
+function getPaymentStatusStyle(
+  status?: "paid" | "late" | "overdue" | "unpaid"
+) {
   switch (status) {
     case "paid":
-      return "bg-green-100 text-green-800 border-green-300";
+      return "border-green-500";
     case "late":
-      return "bg-amber-100 text-amber-800 border-amber-300";
+      return "border-yellow-500";
     case "overdue":
-      return "bg-rose-100 text-rose-800 border-rose-300";
+      return "border-red-500";
+    case "unpaid":
+      return "border-gray-400";
     default:
-      return "bg-slate-100 text-slate-800 border-slate-300";
+      return "border-gray-200";
   }
-};
+}
+
 
 
 const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) => {
@@ -716,7 +721,7 @@ const verifyCurrentUserPassword = async (password: string) => {
                                 }
                                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getPaymentStatusStyle(payment.payment_status)}`}
                               >
-                                {payment.payment_status.toUpperCase()}
+                                {payment.payment_status?.toUpperCase() ?? "—"}
                               </span>
                             </td>
 

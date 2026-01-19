@@ -9,8 +9,6 @@ import {
 import ChangePasswordModal from '../../src/components/ChangePasswordModal';
 import { useSettings } from "../context/SettingsContext";
 
-const DISABLED_TABS = ["notifications", "backup"];
-
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
