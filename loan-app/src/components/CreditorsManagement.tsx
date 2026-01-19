@@ -61,6 +61,8 @@ const CreditorsManagement: React.FC = () => {
   const filteredCreditors = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return creditors;
+
+    console.log(creditors)
     return creditors.filter((c) =>
       `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
       (c.email ?? '').toLowerCase().includes(q) ||
@@ -281,6 +283,18 @@ const CreditorsManagement: React.FC = () => {
                         {formatCurrency(creditor.total_lent)}
                       </span>
                     </div>
+
+                    {/* Expected Returns */}
+                    <div className="flex items-center justify-between p-3 rounded-lg
+                                    bg-gradient-to-r from-purple-50 to-fuchsia-50">
+                      <span className="text-xs sm:text-sm text-slate-600">
+                        Expected Returns
+                      </span>
+                      <span className="text-sm sm:text-base font-bold text-purple-700 tabular-nums">
+                          {formatCurrency(creditor.expected_returns)}
+                      </span>
+                    </div>
+
 
                     {/* Available */}
                     <div className="flex items-center justify-between p-3 rounded-lg

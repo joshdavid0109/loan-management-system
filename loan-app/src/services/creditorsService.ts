@@ -9,37 +9,52 @@ export interface CreditorStat extends Creditor {
   completed_loans: number;
   total_loans: number;
   available: number;
+
+  expected_returns: number;
+  expected_interest: number;
 }
+
 
 /**
  * Fetch creditors with precomputed aggregates from `creditor_stats` view.
  */
-export const fetchCreditorsWithStats = async (): Promise<{ data: CreditorStat[] | null; error: PostgrestError | null }> => {
-  const { data, error } = await supabase.from('creditor_stats').select('*').order('creditor_id', { ascending: true });
+export const fetchCreditorsWithStats = async (): Promise<{
+  data: CreditorStat[] | null;
+  error: PostgrestError | null;
+}> => {
+  const { data, error } = await supabase
+    .from('creditor_stats')
+    .select('*')
+    .order('creditor_id', { ascending: true });
+
   if (error) return { data: null, error };
-  // cast numeric strings (Postgres returns numeric as strings) to numbers for certain fields
+
   const mapped = (data as any[]).map((r) => ({
-  creditor_id: Number(r.creditor_id),
-  first_name: r.first_name,
-  last_name: r.last_name,
-  gender: r.gender,
-  phone: r.phone,
-  email: r.email,
-  address: r.address,
+    creditor_id: Number(r.creditor_id),
+    first_name: r.first_name,
+    last_name: r.last_name,
+    gender: r.gender,
+    phone: r.phone,
+    email: r.email,
+    address: r.address,
 
-  // IMPORTANT: include these missing ones
-  capital: Number(r.capital ?? 0),
-  total_capital: Number(r.total_capital ?? 0),
-  available: Number(r.available ?? 0),
+    total_capital: Number(r.total_capital ?? 0),
+    total_lent: Number(r.total_lent ?? 0),
+    available: Number(r.available ?? 0),
 
-  total_lent: Number(r.total_lent ?? 0),
-  active_loans: Number(r.active_loans ?? 0),
-  completed_loans: Number(r.completed_loans ?? 0),
-  total_loans: Number(r.total_loans ?? 0),
-}));
+    active_loans: Number(r.active_loans ?? 0),
+    completed_loans: Number(r.completed_loans ?? 0),
+    total_loans: Number(r.total_loans ?? 0),
+
+    // ✅ MUST MATCH VIEW NAMES
+    expected_returns: Number(r.expected_returns ?? 0),
+    expected_interest: Number(r.expected_interest ?? 0),
+  }));
 
   return { data: mapped, error: null };
 };
+
+
 
 /**
  * Fetch loans for a given creditor_id

@@ -43,6 +43,11 @@ export interface RepaymentSchedule {
   interest: number;
   amount_paid_flag?: boolean;
   balance: number;
+
+  total_paid?: number;
+  paid_date?: string | null;
+
+  payment_status?: "paid" | "late" | "overdue" | "unpaid";
 }
 
 export interface Payment {

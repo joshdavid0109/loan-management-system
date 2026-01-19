@@ -15,6 +15,20 @@ interface LoansManagementProps {
   onCreateNewLoan: () => void;
 }
 
+const getPaymentStatusStyle = (status: string) => {
+  switch (status) {
+    case "paid":
+      return "bg-green-100 text-green-800 border-green-300";
+    case "late":
+      return "bg-amber-100 text-amber-800 border-amber-300";
+    case "overdue":
+      return "bg-rose-100 text-rose-800 border-rose-300";
+    default:
+      return "bg-slate-100 text-slate-800 border-slate-300";
+  }
+};
+
+
 const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loadingLoans, setLoadingLoans] = useState<boolean>(true);
@@ -71,7 +85,7 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
 
       // 2. Fetch allocations (multi-creditor)
       const { data: allocRows, error: allocErr } = await supabase
-        .from("loan_creditor_allocations")
+        .from("loan_allocations")
         .select(`
           loan_id,
           amount_allocated,
@@ -191,62 +205,95 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
   };
 
   // Fetch schedule on demand
-  const handleViewSchedule = async (loan: Loan) => {
-    setSelectedLoan(loan);
-    setShowSchedule(true);
-    setLoadingSchedule(true);
-    setSelectedSchedule([]);
+ const handleViewSchedule = async (loan: Loan) => {
+  setSelectedLoan(loan);
+  setShowSchedule(true);
+  setLoadingSchedule(true);
+  setSelectedSchedule([]);
 
-    try {
-      // 1. Fetch schedules
-      const { data: scheduleData, error: scheduleErr } = await supabase
-        .from("repayment_schedule")
-        .select("*")
-        .eq("loan_id", loan.loan_id)
-        .order("payment_no", { ascending: true });
+  try {
+    // 1. Fetch repayment schedule
+    const { data: schedules, error: schedErr } = await supabase
+      .from("repayment_schedule")
+      .select("*")
+      .eq("loan_id", loan.loan_id)
+      .order("payment_no", { ascending: true });
 
-      if (scheduleErr) throw scheduleErr;
+    if (schedErr) throw schedErr;
 
-      // 2. Fetch payments (for the current loan only)
-      const { data: paymentsData, error: paymentsErr } = await supabase
-        .from("payments")
-        .select("schedule_id")
-        .eq("loan_id", loan.loan_id);
+    // 2. Fetch payments for this loan
+    const { data: payments, error: payErr } = await supabase
+      .from("payments")
+      .select("schedule_id, amount_paid, payment_date")
+      .eq("loan_id", loan.loan_id);
 
-      if (paymentsErr) throw paymentsErr;
+    if (payErr) throw payErr;
 
-      // 3. Build a lookup: schedule_id -> payment_no
-      const scheduleIdToPaymentNo = new Map<number, number>();
-      (scheduleData ?? []).forEach((s: any) => {
-        scheduleIdToPaymentNo.set(s.schedule_id, s.payment_no);
+    // 3. Group payments by schedule_id
+    const paymentMap = new Map<number, {
+      totalPaid: number;
+      paidDate: string | null;
+    }>();
+
+    (payments ?? []).forEach((p: any) => {
+      const prev = paymentMap.get(p.schedule_id) ?? {
+        totalPaid: 0,
+        paidDate: null,
+      };
+
+      const latestDate =
+        !prev.paidDate || p.payment_date > prev.paidDate
+          ? p.payment_date
+          : prev.paidDate;
+
+      paymentMap.set(p.schedule_id, {
+        totalPaid: prev.totalPaid + Number(p.amount_paid),
+        paidDate: latestDate,
       });
+    });
 
-      // 4. Convert payment schedule_ids into payment_no
-      const paidPaymentNumbers = new Set<number>();
-      (paymentsData ?? []).forEach((p: any) => {
-        const paymentNo = scheduleIdToPaymentNo.get(p.schedule_id);
-        if (paymentNo !== undefined) paidPaymentNumbers.add(paymentNo);
-      });
+    // 4. Merge + derive status
+    const today = new Date();
 
-      // 5. Merge everything
-      const mergedSchedule = (scheduleData ?? []).map((s: any) => ({
+    const merged = (schedules ?? []).map((s: any) => {
+      const payment = paymentMap.get(s.schedule_id);
+      const totalPaid = payment?.totalPaid ?? 0;
+      const paidDate = payment?.paidDate ?? null;
+
+      const amort = Number(s.amortization);
+      const dueDate = new Date(s.due_date);
+
+      let payment_status: "paid" | "late" | "overdue" | "unpaid" = "unpaid";
+
+      if (totalPaid >= amort) {
+        payment_status =
+          paidDate && new Date(paidDate) > dueDate ? "late" : "paid";
+      } else if (today > dueDate) {
+        payment_status = "overdue";
+      }
+
+      return {
         ...s,
         amortization: Number(s.amortization),
         principal: Number(s.principal),
         interest: Number(s.interest),
         balance: Number(s.balance),
-        amount_paid_flag: paidPaymentNumbers.has(s.payment_no),
-      }));
+        total_paid: totalPaid,
+        paid_date: paidDate,
+        payment_status,
+      };
+    });
 
-      setSelectedSchedule(mergedSchedule);
-    } catch (err: any) {
-      console.error("Schedule error:", err);
-      alert(err.message ?? String(err));
-      setShowSchedule(false);
-    } finally {
-      setLoadingSchedule(false);
-    }
-  };
+    setSelectedSchedule(merged);
+  } catch (err: any) {
+    console.error("Schedule error:", err);
+    alert(err.message ?? String(err));
+    setShowSchedule(false);
+  } finally {
+    setLoadingSchedule(false);
+  }
+};
+
 
   // Verify password for currently logged-in user using the /auth/v1/verify endpoint.
   // This avoids calling signInWithPassword when already authenticated.
@@ -659,16 +706,20 @@ const verifyCurrentUserPassword = async (password: string) => {
                               </td>
 
                               <td className="px-6 py-4 whitespace-nowrap">
-                                {payment.amount_paid_flag ? (
-                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
-                                    Paid
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
-                                    Unpaid
-                                  </span>
-                                )}
-                              </td>
+                              <span
+                                title={
+                                  payment.paid_date
+                                    ? `Paid on ${new Date(payment.paid_date).toLocaleDateString()}`
+                                    : payment.payment_status === "overdue"
+                                    ? "Payment overdue"
+                                    : "Not yet paid"
+                                }
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getPaymentStatusStyle(payment.payment_status)}`}
+                              >
+                                {payment.payment_status.toUpperCase()}
+                              </span>
+                            </td>
+
                             </tr>
                           ))
                         )}

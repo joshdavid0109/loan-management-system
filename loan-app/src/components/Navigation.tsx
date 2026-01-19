@@ -34,6 +34,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onPageChange }) =>
     { name: 'Dashboard', href: 'dashboard', icon: HomeIcon, current: currentPage === 'dashboard' },
     { name: 'Loan Calculator', href: 'calculator', icon: CalculatorIcon, current: currentPage === 'calculator' },
     { name: 'Loans Management', href: 'loans', icon: DocumentTextIcon, current: currentPage === 'loans' },
+    { name: 'Payments', href: 'payments', icon: BanknotesIcon, current: currentPage === 'payments' },
     { name: 'Debtors', href: 'debtors', icon: UserGroupIcon, current: currentPage === 'debtors' },
     { name: 'Creditors', href: 'creditors', icon: BanknotesIcon, current: currentPage === 'creditors' },
     { name: 'Reports', href: 'reports', icon: ChartBarIcon, current: currentPage === 'reports' },

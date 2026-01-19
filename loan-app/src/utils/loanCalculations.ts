@@ -32,84 +32,81 @@ export const calculateLoan = (
   const P = new Decimal(principal);
   const r = new Decimal(interestRateMonthly).div(100);
 
-  const monthlyPayment = P.mul(r)
-    .mul(r.add(1).pow(months))
-    .div(r.add(1).pow(months).minus(1));
+  const DAYS_PER_MONTH = 30;
+  const WEEKS_PER_MONTH = 4;
 
-  const schedule: RepaymentSchedule[] = [];
+  // ─────────────────────────────────────────────
+  // 1️⃣ TOTALS (SIMPLE INTEREST)
+  // ─────────────────────────────────────────────
+  const totalInterest = P.mul(r).mul(months);
+  const totalAmount = P.plus(totalInterest);
 
-  // frequency logic
+  // ─────────────────────────────────────────────
+  // 2️⃣ PAYMENT COUNTS
+  // ─────────────────────────────────────────────
   let payments: number;
-  let periodPayment: Decimal;
-  let ratePerPeriod: Decimal;
 
   if (frequency === "daily") {
-    payments = months * 30;
-    ratePerPeriod = r.div(30);
-    periodPayment = monthlyPayment.div(30);
+    payments = months * DAYS_PER_MONTH;
   } else if (frequency === "weekly") {
-    payments = Math.round(months * 4.33);
-    ratePerPeriod = r.div(4.33);
-    periodPayment = monthlyPayment.div(4.33);
+    payments = months * WEEKS_PER_MONTH;
   } else {
     payments = months;
-    ratePerPeriod = r;
-    periodPayment = monthlyPayment;
   }
 
-  let balance = P;
+  // ─────────────────────────────────────────────
+  // 3️⃣ PER-PERIOD BREAKDOWN (FIXED)
+  // ─────────────────────────────────────────────
+  const principalPerPeriod = P.div(payments);
+  const interestPerPeriod = totalInterest.div(payments);
+  const paymentPerPeriod = principalPerPeriod.plus(interestPerPeriod);
+
+  // ─────────────────────────────────────────────
+  // 4️⃣ BUILD SCHEDULE
+  // ─────────────────────────────────────────────
+  let balance = totalAmount;
+  const schedule: RepaymentSchedule[] = [];
 
   for (let n = 1; n <= payments; n++) {
-    const interest = balance.mul(ratePerPeriod);
-    let principalPart = periodPayment.minus(interest);
+    balance = balance.minus(paymentPerPeriod);
+    if (balance.lessThan(0)) balance = new Decimal(0);
 
-    // last payment fix
-    if (principalPart.greaterThan(balance)) {
-      principalPart = balance;
-    }
-
-    const payment = principalPart.add(interest);
-    balance = balance.minus(principalPart);
-
-    // calculate due date
     let dueDate = startDate;
-
-    if (frequency === "daily") {
-      dueDate = addDays(startDate, n - 1);
-    } else if (frequency === "weekly") {
-      dueDate = addWeeks(startDate, n - 1);
-    } else {
-      dueDate = addMonths(startDate, n - 1);
-    }
+    if (frequency === "daily") dueDate = addDays(startDate, n - 1);
+    if (frequency === "weekly") dueDate = addWeeks(startDate, n - 1);
+    if (frequency === "monthly") dueDate = addMonths(startDate, n - 1);
 
     schedule.push({
       schedule_id: n,
       loan_id: 0,
       payment_no: n,
       due_date: dueDate,
-      amortization: payment.toNumber(),
-      principal: principalPart.toNumber(),
-      interest: interest.toNumber(),
+      amortization: paymentPerPeriod.toNumber(),
+      principal: principalPerPeriod.toNumber(),
+      interest: interestPerPeriod.toNumber(),
       balance: balance.toNumber(),
     });
 
-    if (balance.lessThanOrEqualTo(0.009)) {
-      balance = new Decimal(0);
-      break;
-    }
+    if (balance.eq(0)) break;
   }
 
+  // ─────────────────────────────────────────────
+  // 5️⃣ RETURN SUMMARY
+  // ─────────────────────────────────────────────
   return {
-    principal,
+    principal: principal,
     interest_rate_monthly: interestRateMonthly,
     loan_term_months: months,
     frequency,
-    total_interest: monthlyPayment.mul(months).minus(P).toNumber(),
-    total_amount: monthlyPayment.mul(months).toNumber(),
-    monthly_payment: monthlyPayment.toNumber(),
+    total_interest: totalInterest.toNumber(),
+    total_amount: totalAmount.toNumber(),
+    monthly_payment: paymentPerPeriod.mul(
+      frequency === "monthly" ? 1 : frequency === "weekly" ? WEEKS_PER_MONTH : DAYS_PER_MONTH
+    ).toNumber(),
     amortization_schedule: schedule,
   };
 };
+
 
 
 export const calculateDailyPayment = (monthlyPayment: number): number => {
@@ -127,9 +124,21 @@ export const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export const formatPercentage = (value: number): string => {
-  return `${value.toFixed(2)}%`;
+export const formatPercentage = (value: number | string | Decimal): string => {
+  if (value === null || value === undefined) return "0.00%";
+
+  const num =
+    value instanceof Decimal
+      ? value.toNumber()
+      : typeof value === "string"
+      ? Number(value)
+      : value;
+
+  if (Number.isNaN(num)) return "0.00%";
+
+  return `${num.toFixed(2)}%`;
 };
+
 
 export const calculateDaysBetween = (startDate: string, endDate: string): number => {
   const start = new Date(startDate);

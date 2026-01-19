@@ -38,14 +38,17 @@ export const saveLoanWithSchedule = async (input: CreateLoanInput) => {
       frequency_of_collection: input.frequency_of_collection,
       start_date: input.start_date,
 
-      schedule: input.calculation.amortization_schedule.map((s) => ({
-        payment_no: s.payment_no,
-        due_date: s.due_date,
-        amortization: s.amortization,
-        principal: s.principal,
-        interest: s.interest,
-        balance: s.balance,
-      })),
+      schedule: input.calculation.amortization_schedule
+        .filter(s => s.payment_no > 0)          // 🚫 remove row 0
+        .map((s, idx) => ({
+          payment_no: idx + 1,                  // ✅ re-number safely
+          due_date: s.due_date,
+          amortization: s.amortization,
+          principal: s.principal,
+          interest: s.interest,
+          balance: s.balance,
+        })),
+
 
       allocations: input.allocations.map((a) => ({
         creditor_id: a.creditor_id,

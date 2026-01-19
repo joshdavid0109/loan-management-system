@@ -10,6 +10,7 @@ import CreditorsManagement from "./components/CreditorsManagement";
 import Reports from "./components/Reports";
 import Settings from "./components/Settings";
 import Login from "../src/pages/Login"; // 👈 create this (simple login page)
+import PaymentsManagement from "./components/PaymentsManagement";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
@@ -63,6 +64,8 @@ function App() {
         return <DebtorsManagement />;
       case "creditors":
         return <CreditorsManagement />;
+      case "payments":
+        return <PaymentsManagement />;
       case "reports":
         return <Reports />;
       case "settings":
