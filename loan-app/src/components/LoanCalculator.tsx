@@ -9,6 +9,7 @@ import { saveLoanWithSchedule } from "../utils/loanService";
 import { fetchCreditorsWithStats } from "../services/creditorsService";
 import { supabase } from '../../src/utils/supabaseClient';
 import { addDebtor } from "../services/debtorsService";
+import { useSettings } from "../context/SettingsContext";
 
 
 type LoanFormData = {
@@ -32,6 +33,7 @@ const LoanCalculator: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   const [showDebtorModal, setShowDebtorModal] = useState(false);
+  
 
   const [newDebtor, setNewDebtor] = useState({
     name: "",
@@ -42,6 +44,8 @@ const LoanCalculator: React.FC = () => {
   const [debtors, setDebtors] = useState<
     { debtor_id: number; name: string; contact_info?: string; address?: string }[]
   >([]);
+
+
 
 
 
@@ -75,6 +79,27 @@ const LoanCalculator: React.FC = () => {
       creditor_id: 1,
     },
   });
+
+    const { settings } = useSettings();
+
+    useEffect(() => {
+      if (!settings) return;
+
+      setValue("interest_rate_monthly", settings.defaultInterestRate);
+      setValue("loan_term_months", settings.maxLoanTerm);
+    }, [settings, setValue]);
+
+    useEffect(() => {
+  if (!settings) return;
+
+  // update defaults
+  setValue("interest_rate_monthly", settings.defaultInterestRate);
+  setValue("loan_term_months", settings.maxLoanTerm);
+
+  // 🔥 auto recalculate using current form values
+  handleSubmit(onSubmit)();
+}, [settings]);
+
 
   const watched = watch();
 

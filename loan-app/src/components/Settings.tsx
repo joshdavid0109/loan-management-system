@@ -7,6 +7,10 @@ import {
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
 import ChangePasswordModal from '../../src/components/ChangePasswordModal';
+import { useSettings } from "../context/SettingsContext";
+
+const DISABLED_TABS = ["notifications", "backup"];
+
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -24,6 +28,8 @@ const Settings: React.FC = () => {
     minLoanTerm: 1
   });
   const [openPasswordModal, setOpenPasswordModal] = useState(false);
+  const { saveSettings } = useSettings();
+
 
 
   const handleSettingChange = (key: string, value: any) => {
@@ -45,21 +51,6 @@ const Settings: React.FC = () => {
               onChange={(e) => handleSettingChange('companyName', e.target.value)}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Default Currency
-            </label>
-            <select
-              value={settings.defaultCurrency}
-              onChange={(e) => handleSettingChange('defaultCurrency', e.target.value)}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            >
-              <option value="PHP">Philippine Peso (₱)</option>
-              <option value="USD">US Dollar ($)</option>
-              <option value="EUR">Euro (€)</option>
-              <option value="GBP">British Pound (£)</option>
-            </select>
           </div>
         </div>
       </div>
@@ -299,7 +290,13 @@ const Settings: React.FC = () => {
                 Configure system settings, notifications, and security preferences
               </p>
             </div>
-            <button className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl">
+            <button
+              onClick={async () => {
+                await saveSettings(settings);
+                alert("Settings saved!");
+              }}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl"
+            >
               Save Changes
             </button>
           </div>
@@ -321,16 +318,15 @@ const Settings: React.FC = () => {
                   <Cog6ToothIcon className="w-5 h-5" />
                   <span className="font-medium">General</span>
                 </button>
-                <button
-                  onClick={() => setActiveTab('notifications')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
-                    activeTab === 'notifications'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
+               <button
+                  disabled
+                  className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left
+                            text-slate-400 bg-slate-100 cursor-not-allowed"
                 >
                   <BellIcon className="w-5 h-5" />
-                  <span className="font-medium">Notifications</span>
+                  <span className="font-medium">
+                    Notifications <span className="text-xs">(Coming Soon)</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => setActiveTab('security')}
@@ -344,15 +340,14 @@ const Settings: React.FC = () => {
                   <span className="font-medium">Security</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab('backup')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
-                    activeTab === 'backup'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
+                  disabled
+                  className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left
+                            text-slate-400 bg-slate-100 cursor-not-allowed"
                 >
                   <DocumentTextIcon className="w-5 h-5" />
-                  <span className="font-medium">Backup & Export</span>
+                  <span className="font-medium">
+                    Backup & Export <span className="text-xs">(Coming Soon)</span>
+                  </span>
                 </button>
               </nav>
             </div>

@@ -18,6 +18,7 @@ function App() {
   // 🔐 auth state
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
 
   // ✅ check session on load
   useEffect(() => {
@@ -36,6 +37,19 @@ function App() {
       listener.subscription.unsubscribe();
     };
   }, []);
+  useEffect(() => {
+  const handleOnline = () => setIsOnline(true);
+  const handleOffline = () => setIsOnline(false);
+
+  window.addEventListener("online", handleOnline);
+  window.addEventListener("offline", handleOffline);
+
+  return () => {
+    window.removeEventListener("online", handleOnline);
+    window.removeEventListener("offline", handleOffline);
+  };
+}, []);
+
 
   // 🛑 prevent render while checking auth
   if (authLoading) {
@@ -45,6 +59,29 @@ function App() {
       </div>
     );
   }
+  // 🌐 block app if offline
+if (!isOnline) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+        <div className="text-4xl mb-4">📡</div>
+
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          No Internet Connection
+        </h2>
+
+        <p className="text-slate-600 text-sm mb-6">
+          You must be connected to the internet to use the loan management system.
+        </p>
+
+        <p className="text-xs text-slate-500">
+          Waiting for network…
+        </p>
+      </div>
+    </div>
+  );
+}
+
 
   // 🔐 show login FIRST if not authenticated
   if (!user) {

@@ -225,14 +225,16 @@ const PaymentsManagement = () => {
         <table className="min-w-full divide-y">
           <thead className="bg-slate-100">
             <tr>
-              <th className="px-4 py-3 text-left text-sm">Date</th>
-              <th className="px-4 py-3 text-left text-sm">Loan</th>
-              <th className="px-4 py-3 text-left text-sm">Debtor</th>
-              <th className="px-4 py-3 text-left text-sm">Amount</th>
-              <th className="px-4 py-3 text-left text-sm">Status</th>
-              <th className="px-4 py-3 text-left text-sm">Creditors</th>
+                <th className="px-4 py-3 text-left text-sm">Date Paid</th>
+                <th className="px-4 py-3 text-left text-sm">Due Date</th>
+                <th className="px-4 py-3 text-left text-sm">Loan</th>
+                <th className="px-4 py-3 text-left text-sm">Debtor</th>
+                <th className="px-4 py-3 text-left text-sm">Amount</th>
+                <th className="px-4 py-3 text-left text-sm">Status</th>
+                <th className="px-4 py-3 text-left text-sm">Creditors</th>
             </tr>
-          </thead>
+        </thead>
+
 
           <tbody className="divide-y">
             {loading ? (
@@ -250,13 +252,21 @@ const PaymentsManagement = () => {
             ) : (
               filteredPayments.map((p) => (
                 <tr key={p.payment_id} className="hover:bg-slate-50">
-                  {/* DATE */}
-                  <td className="px-4 py-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <CalendarIcon className="w-4 h-4 text-slate-400" />
-                      {formatDateLong(p.payment_date)}
-                    </div>
-                  </td>
+                 {/* DATE PAID */}
+                <td className="px-4 py-3 text-sm">
+                <div className="flex items-center gap-2">
+                    <CalendarIcon className="w-4 h-4 text-slate-400" />
+                    {formatDateLong(p.payment_date)}
+                </div>
+                </td>
+
+                {/* DUE DATE */}
+                <td className="px-4 py-3 text-sm">
+                <div className="flex items-center gap-2">
+                    <CalendarIcon className="w-4 h-4 text-slate-400" />
+                    {formatDateLong(p.due_date)}
+                </div>
+                </td>
 
                   {/* LOAN / SCHEDULE */}
                   <td className="px-4 py-3 text-sm font-semibold">
