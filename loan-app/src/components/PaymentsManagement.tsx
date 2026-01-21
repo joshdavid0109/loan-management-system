@@ -44,6 +44,17 @@ const PaymentsManagement = () => {
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+
+  useEffect(() => {
+  setCurrentPage(1);
+}, [search, statusFilter, sortBy, sortDir, pageSize]);
+
+
 
   useEffect(() => {
     fetchPayments();
@@ -174,6 +185,15 @@ const PaymentsManagement = () => {
     return 0;
   });
 
+  // ✅ PAGINATION (STEP 3)
+const totalPages = Math.ceil(filteredPayments.length / pageSize);
+
+const paginatedPayments = filteredPayments.slice(
+  (currentPage - 1) * pageSize,
+  currentPage * pageSize
+);
+
+
 
   return (
     <div className="p-8">
@@ -250,7 +270,7 @@ const PaymentsManagement = () => {
                 </td>
               </tr>
             ) : (
-              filteredPayments.map((p) => (
+              paginatedPayments.map((p) => (
                 <tr key={p.payment_id} className="hover:bg-slate-50">
                  {/* DATE PAID */}
                 <td className="px-4 py-3 text-sm">
@@ -325,6 +345,72 @@ const PaymentsManagement = () => {
             )}
           </tbody>
         </table>
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
+        {/* PAGE INFO */}
+        <div className="text-sm text-slate-600">
+          Showing{" "}
+          <b>
+            {(currentPage - 1) * pageSize + 1}–
+            {Math.min(currentPage * pageSize, filteredPayments.length)}
+          </b>{" "}
+          of <b>{filteredPayments.length}</b> payments
+        </div>
+
+        {/* PAGE SIZE */}
+        <div className="flex items-center gap-2 text-sm">
+          <span>Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="px-2 py-1 border rounded-md"
+          >
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* PAGINATION BUTTONS */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1 border rounded-lg text-sm disabled:opacity-50"
+          >
+            Prev
+          </button>
+
+          {Array.from({ length: totalPages }).map((_, i) => {
+            const page = i + 1;
+            return (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1 rounded-lg text-sm border ${
+                  page === currentPage
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white"
+                }`}
+              >
+                {page}
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() =>
+              setCurrentPage((p) => Math.min(totalPages, p + 1))
+            }
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 border rounded-lg text-sm disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
       </div>
     </div>
   );

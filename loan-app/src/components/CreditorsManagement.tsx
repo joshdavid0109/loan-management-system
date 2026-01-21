@@ -62,7 +62,6 @@ const CreditorsManagement: React.FC = () => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return creditors;
 
-    console.log(creditors)
     return creditors.filter((c) =>
       `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
       (c.email ?? '').toLowerCase().includes(q) ||
@@ -73,11 +72,13 @@ const CreditorsManagement: React.FC = () => {
 
   const handleViewCreditor = async (c: CreditorStat) => {
     setSelectedCreditor(c);
+    console.log("selected creditor", c)
     setShowModal(true);
 
     // fetch loans for this creditor live
     setLoadingLoans(true);
     const { data, error } = await fetchLoansByCreditor(c.creditor_id);
+    console.log("loans for this creditor", data)
     if (error) {
       console.error('Failed to fetch loans for creditor', error);
       setLoansForCreditor([]);
@@ -443,18 +444,99 @@ const CreditorsManagement: React.FC = () => {
                   ) : loansForCreditor.length === 0 ? (
                     <div className="p-4 text-sm text-slate-500">No loans for this creditor.</div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {loansForCreditor.map((ln) => (
-                        <div key={ln.loan_id} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center">
-                          <div>
-                            <div className="text-sm font-semibold">{ln.debtor?.name ?? '—'}</div>
-                            <div className="text-xs text-slate-500">{ln.frequency_of_collection} • {ln.loan_term_months} months</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-bold">
-                              {formatCurrency((ln as any).amount_allocated ?? ln.principal_amount)}
+                        <div
+                          key={ln.loan_id}
+                          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                        >
+                          {/* Header */}
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="text-sm font-semibold text-slate-900">
+                                Loan #{ln.loan_id}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                Debtor: {ln.debtor?.name ?? '—'}
+                              </div>
                             </div>
-                            <div className="text-xs text-slate-500">{ln.status}</div>
+
+                            <span
+                              className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                                ln.status === 'active'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {ln.status}
+                            </span>
+                          </div>
+
+                          {/* Details grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <div className="text-slate-500">Principal</div>
+                              <div className="font-semibold">
+                                {formatCurrency(ln.principal_amount)}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-slate-500">Allocated</div>
+                              <div className="font-semibold">
+                                {formatCurrency(ln.amount_allocated)}
+                              </div>
+                            </div>
+                            <div className="text-sm font-semibold">
+                              To be returned: {formatCurrency(ln.amount_to_be_returned)}
+                            </div>
+
+                            {ln.is_shared_loan && (
+                              <span className="text-xs text-indigo-600 font-medium">
+                                Shared Loan
+                              </span>
+                            )}
+
+                            <div>
+                              <div className="text-slate-500">Interest / month</div>
+                              <div className="font-semibold">
+                                {ln.interest_rate_monthly}%
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-slate-500">Term</div>
+                              <div className="font-semibold">
+                                {ln.loan_term_months} months
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-slate-500">Collection</div>
+                              <div className="font-semibold">
+                                {ln.frequency_of_collection}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-slate-500">Start Date</div>
+                              <div className="font-semibold">
+                                {ln.start_date ?? '—'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Footer */}
+                          <div className="mt-3 flex justify-between items-center text-xs text-slate-500">
+                            <div>
+                              Released: {ln.date_released ?? '—'}
+                            </div>
+
+                            {ln.is_allocated && (
+                              <span className="text-indigo-600 font-semibold">
+                                Allocated Loan
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}

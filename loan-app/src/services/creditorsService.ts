@@ -63,107 +63,85 @@ export const fetchLoansByCreditor = async (
   creditor_id: number
 ): Promise<{ data: Loan[] | null; error: PostgrestError | null }> => {
 
-  // -------------------------
-  // A) LOANS WHERE CREDITOR IS PRIMARY (loans.creditor_id)
-  // -------------------------
-  const direct = await supabase
-    .from('loans')
-    .select(`
+  const { data, error } = await supabase
+  .from('loan_allocations')
+  .select(`
+    allocation_id,
+    loan_id,
+    amount_allocated,
+
+    loan:loans (
       loan_id,
       debtor_id,
-      creditor_id,
       principal_amount,
-      date_released,
       interest_rate_monthly,
       loan_term_months,
       frequency_of_collection,
+      date_released,
       start_date,
       status,
-      debtors(*)
-    `)
-    .eq('creditor_id', creditor_id)
-    .order('loan_id', { ascending: true });
 
-  if (direct.error) return { data: null, error: direct.error };
-
-  const directMapped = (direct.data || []).map((r: any) => ({
-    loan_id: r.loan_id,
-    debtor_id: r.debtor_id,
-    creditor_id: r.creditor_id,
-    principal_amount: Number(r.principal_amount),
-    date_released: r.date_released,
-    interest_rate_monthly: Number(r.interest_rate_monthly),
-    loan_term_months: Number(r.loan_term_months),
-    frequency_of_collection: r.frequency_of_collection,
-    start_date: r.start_date,
-    status: r.status,
-    debtor: r.debtors ?? null,
-    creditor: undefined,
-
-    // Full owner → no allocation
-    amount_allocated: Number(r.principal_amount)
-  })) as Loan[];
-
-
-  // -------------------------
-  // B) LOANS WHERE CREDITOR IS AN ALLOCATOR (loan_creditor_allocations)
-  // -------------------------
-  const alloc = await supabase
-    .from('loan_creditor_allocations')
-    .select(`
-      allocation_id,
-      amount_allocated,
-      loans:loans (
-        loan_id,
+      debtor:debtors (
         debtor_id,
-        creditor_id,
-        principal_amount,
-        date_released,
-        interest_rate_monthly,
-        loan_term_months,
-        frequency_of_collection,
-        start_date,
-        status,
-        debtors(*)
+        name,
+        contact_info,
+        address
+      ),
+
+      allocations:loan_allocations (
+        creditor_id
       )
-    `)
-    .eq('creditor_id', creditor_id)
-    .order('allocation_id', { ascending: true });
-
-  if (alloc.error) return { data: null, error: alloc.error };
-
-  const allocMapped = (alloc.data || []).map((row: any) => ({
-    loan_id: row.loans.loan_id,
-    debtor_id: row.loans.debtor_id,
-    creditor_id: row.loans.creditor_id,
-    principal_amount: Number(row.loans.principal_amount),
-    date_released: row.loans.date_released,
-    interest_rate_monthly: Number(row.loans.interest_rate_monthly),
-    loan_term_months: Number(row.loans.loan_term_months),
-    frequency_of_collection: row.loans.frequency_of_collection,
-    start_date: row.loans.start_date,
-    status: row.loans.status,
-    debtor: row.loans.debtors ?? null,
-    creditor: undefined,
-
-    // Allocated loan → use allocated amount
-    amount_allocated: Number(row.amount_allocated)
-  })) as Loan[];
+    )
+  `)
+  .eq('creditor_id', creditor_id);
 
 
-  // -------------------------
-  // MERGE A + B AND REMOVE DUPLICATES
-  // -------------------------
-  const combined = [...directMapped];
+  if (error) return { data: null, error };
 
-  allocMapped.forEach((a) => {
-    if (!combined.some((d) => d.loan_id === a.loan_id)) {
-      combined.push(a);
-    }
-  });
+  const mapped = (data || []).map((row: any) => {
+    const principal = Number(row.loan.principal_amount);
+    const allocated = Number(row.amount_allocated);
 
-  return { data: combined, error: null };
+    const interestRate = Number(row.loan.interest_rate_monthly);
+    const months = Number(row.loan.loan_term_months);
+
+    // simple interest model (adjust if you compound)
+    const totalInterest = principal * (interestRate / 100) * months;
+
+    const shareRatio = allocated / principal;
+
+    const amountToBeReturned =
+      allocated + totalInterest * shareRatio;
+
+    const isSharedLoan = (row.loan.allocations?.length ?? 0) > 1;
+
+    return {
+      loan_id: row.loan.loan_id,
+      debtor_id: row.loan.debtor_id,
+      creditor_id,
+
+      principal_amount: principal,
+      interest_rate_monthly: interestRate,
+      loan_term_months: months,
+      frequency_of_collection: row.loan.frequency_of_collection,
+      date_released: row.loan.date_released,
+      start_date: row.loan.start_date,
+      status: row.loan.status,
+
+      debtor: row.loan.debtor ?? null,
+      creditor: undefined,
+
+      amount_allocated: allocated,
+      amount_to_be_returned: Number(amountToBeReturned.toFixed(2)),
+      is_allocated: true,
+      is_shared_loan: isSharedLoan
+    };
+  }) as Loan[];
+
+  return { data: mapped, error: null };
 };
+
+
 
 /**
  * Create a creditor

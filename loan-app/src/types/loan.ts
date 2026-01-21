@@ -30,6 +30,10 @@ export interface Loan {
   // MAKE THESE OPTIONAL
   debtor?: Debtor | null;
   creditor?: Creditor | null;
+  amount_allocated: number;
+  amount_to_be_returned: number;
+  is_allocated: boolean;
+  is_shared_loan: boolean;
 }
 
 
