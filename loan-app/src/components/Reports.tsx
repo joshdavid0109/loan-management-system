@@ -55,9 +55,11 @@ const Reports: React.FC = () => {
   const defaultedLoans = loans.filter(loan => loan.status === 'Defaulted').length;
 
   const totalPrincipal = loans.reduce((sum, loan) => sum + Number(loan.principal_amount), 0);
-  const activePrincipal = loans
-    .filter(loan => loan.status === 'Ongoing')
-    .reduce((sum, loan) => sum + Number(loan.principal_amount), 0);
+  const activePrincipal = creditors.reduce(
+    (sum, c) => sum + Number(c.available ?? 0),
+    0
+  );
+
 
   // Monthly trends
   const getMonthlyData = () => {
@@ -127,7 +129,7 @@ const Reports: React.FC = () => {
         <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-amber-100 text-sm font-medium">Total Principal</p>
+              <p className="text-amber-100 text-sm font-medium">Total Principal Used</p>
               <p className="text-2xl font-bold">{formatCurrency(totalPrincipal)}</p>
             </div>
             <CurrencyDollarIcon className="w-8 h-8 text-amber-200" />

@@ -1,5 +1,5 @@
 // src/components/LoanCalculator.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { calculateLoan, formatCurrency, formatPercentage } from "../utils/loanCalculations";
 import type { CreditorStat } from "../services/creditorsService";
@@ -33,6 +33,9 @@ const LoanCalculator: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   const [showDebtorModal, setShowDebtorModal] = useState(false);
+
+  const scheduleRef = useRef<HTMLDivElement | null>(null);
+
   
 
   const [newDebtor, setNewDebtor] = useState({
@@ -46,6 +49,14 @@ const LoanCalculator: React.FC = () => {
   >([]);
 
 
+  useEffect(() => {
+    if (showSchedule && scheduleRef.current) {
+      scheduleRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [showSchedule]);
 
 
 
@@ -594,7 +605,10 @@ const [allocations, setAllocations] = useState<Allocation[]>([
 
         {/* Schedule */}
         {calculation && showSchedule && (
-          <div className="mt-12 bg-white/70 rounded-2xl p-6 shadow-xl border border-white/20">
+          <div
+            ref={scheduleRef}
+            className="mt-12 bg-white/70 rounded-2xl p-6 shadow-xl border border-white/20"
+          >
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200">
                 <thead>

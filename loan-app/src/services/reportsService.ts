@@ -20,7 +20,7 @@ export const fetchAllReportsData = async () => {
 
   // 3) Fetch creditors list
   const { data: creditors, error: creditorErr } = await supabase
-    .from('creditors')
+    .from('creditor_stats')
     .select('*');
   if (creditorErr) throw creditorErr;
 

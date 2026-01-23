@@ -43,6 +43,8 @@ function getPaymentStatusStyle( status?: PaymentStatus
 
 
 
+
+
 const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loadingLoans, setLoadingLoans] = useState<boolean>(true);
@@ -62,6 +64,15 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const PAGE_SIZE = 10;
+
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+
 
   // -- Load current authenticated user (no re-login) --
   useEffect(() => {
@@ -185,6 +196,18 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
       return matchesSearch && matchesStatus;
     });
   }, [loans, searchTerm, statusFilter]);
+
+  const totalPages = Math.max(
+  1,
+  Math.ceil(filteredLoans.length / PAGE_SIZE)
+);
+
+  const pagedLoans = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return filteredLoans.slice(start, end);
+  }, [filteredLoans, currentPage]);
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -467,7 +490,14 @@ const verifyCurrentUserPassword = async (password: string) => {
               </select>
             </div>
             <div className="flex items-center justify-end">
-              <span className="text-sm text-slate-500 bg-white/60 px-4 py-2 rounded-lg border border-slate-200">{loadingLoans ? 'Loading...' : `Showing ${filteredLoans.length} of ${loans.length} loans`}</span>
+                <span className="text-sm text-slate-500 bg-white/60 px-4 py-2 rounded-lg border border-slate-200">
+                  {loadingLoans
+                    ? "Loading..."
+                    : `Showing ${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(
+                        currentPage * PAGE_SIZE,
+                        filteredLoans.length
+                      )} of ${filteredLoans.length} loans`}
+                </span>
             </div>
           </div>
         </div>
@@ -499,7 +529,7 @@ const verifyCurrentUserPassword = async (password: string) => {
                     <td colSpan={9} className="p-8 text-center text-slate-500">No loans found.</td>
                   </tr>
                 ) : (
-                  filteredLoans.map((loan) => (
+                  pagedLoans.map((loan) => (
                     <tr key={loan.loan_id} className="hover:bg-slate-50/80 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-indigo-100 to-blue-100 text-indigo-800 border border-indigo-200">#{loan.loan_id}</span>
@@ -592,6 +622,43 @@ const verifyCurrentUserPassword = async (password: string) => {
                 )}
               </tbody>
             </table>
+            <div className="mt-6 flex items-center justify-center mb-5">
+              <div className="flex items-center gap-4 rounded-xl bg-white px-4 py-3 shadow-sm border border-slate-200">
+                {/* Previous */}
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  className={`
+                    px-4 py-2 rounded-lg text-sm font-semibold transition
+                    ${currentPage === 1
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      : "bg-slate-900 text-white hover:bg-slate-800"}
+                  `}
+                >
+                  Previous
+                </button>
+
+                {/* Page indicator */}
+                <div className="min-w-[120px] text-center text-sm font-medium text-slate-600">
+                  Page <span className="font-semibold">{currentPage}</span> of{" "}
+                  <span className="font-semibold">{totalPages}</span>
+                </div>
+
+                {/* Next */}
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  className={`
+                    px-4 py-2 rounded-lg text-sm font-semibold transition
+                    ${currentPage === totalPages
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      : "bg-slate-900 text-white hover:bg-slate-800"}
+                  `}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
