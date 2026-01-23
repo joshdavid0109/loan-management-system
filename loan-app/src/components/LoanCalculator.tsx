@@ -156,6 +156,15 @@ const [allocations, setAllocations] = useState<Allocation[]>([
 
   // Calculate loan result (on submit)
   const onSubmit = (data: LoanFormData) => {
+    const principal = Number(data.principal ?? 0);
+
+    if (Math.abs(Number(totalAllocated) - principal) > 0.01) {
+      setAllocError("Allocations must equal the principal amount.");
+      return; // ⛔ STOP calculation
+    }
+
+    setAllocError(null);
+
     const result = calculateLoan(
       data.principal,
       data.interest_rate_monthly,
@@ -163,11 +172,12 @@ const [allocations, setAllocations] = useState<Allocation[]>([
       data.frequency,
       data.start_date
     );
+
     setCalculation(result);
     setShowSchedule(false);
     setCurrentPage(1);
-    // keep allocations total in sync (optional)
   };
+
 
   // pagination derived
   const totalItems = calculation?.amortization_schedule.length ?? 0;
@@ -232,6 +242,11 @@ const [allocations, setAllocations] = useState<Allocation[]>([
       setSaving(false);
     }
   };
+
+  const principal = Number(watched.principal ?? 0);
+  const allocationMismatch =
+    Math.abs(Number(totalAllocated) - principal) > 0.01;
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8">
@@ -496,14 +511,18 @@ const [allocations, setAllocations] = useState<Allocation[]>([
               {/* Calculate */}
               <button
                 type="submit"
-                className="w-full py-3 px-4 sm:px-6
-                          text-sm sm:text-base
-                          rounded-xl font-semibold text-white shadow-lg
-                          bg-gradient-to-r from-blue-600 to-indigo-600
-                          hover:from-blue-700 hover:to-indigo-700"
+                disabled={allocationMismatch}
+                className={`w-full py-3 px-4 sm:px-6
+                  rounded-xl font-semibold text-white shadow-lg
+                  ${
+                    allocationMismatch
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  }`}
               >
                 Calculate Loan
               </button>
+
 
               {/* Save */}
               <button

@@ -11,18 +11,27 @@ import { supabase } from '../../src/utils/supabaseClient';
 import type { Loan, RepaymentSchedule } from '../types/loan';
 import { formatCurrency } from '../utils/loanCalculations';
 
+type PaymentStatus =
+  | "paid"
+  | "late"
+  | "due_today"
+  | "overdue"
+  | "unpaid";
+
+
 interface LoansManagementProps {
   onCreateNewLoan: () => void;
 }
 
-function getPaymentStatusStyle(
-  status?: "paid" | "late" | "overdue" | "unpaid"
+function getPaymentStatusStyle( status?: PaymentStatus
 ) {
   switch (status) {
     case "paid":
       return "border-green-500";
     case "late":
       return "border-yellow-500";
+    case "due_today":
+      return "border-blue-500";
     case "overdue":
       return "border-red-500";
     case "unpaid":
@@ -259,6 +268,7 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
 
     // 4. Merge + derive status
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const merged = (schedules ?? []).map((s: any) => {
       const payment = paymentMap.get(s.schedule_id);
@@ -266,13 +276,17 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
       const paidDate = payment?.paidDate ?? null;
 
       const amort = Number(s.amortization);
-      const dueDate = new Date(s.due_date);
 
-      let payment_status: "paid" | "late" | "overdue" | "unpaid" = "unpaid";
+      const dueDate = new Date(s.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+
+      let payment_status: PaymentStatus = "unpaid";
 
       if (totalPaid >= amort) {
         payment_status =
           paidDate && new Date(paidDate) > dueDate ? "late" : "paid";
+      } else if (dueDate.getTime() === today.getTime()) {
+        payment_status = "due_today";
       } else if (today > dueDate) {
         payment_status = "overdue";
       }
@@ -288,6 +302,7 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
         payment_status,
       };
     });
+
 
     setSelectedSchedule(merged);
   } catch (err: any) {
@@ -721,7 +736,11 @@ const verifyCurrentUserPassword = async (password: string) => {
                                 }
                                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getPaymentStatusStyle(payment.payment_status)}`}
                               >
-                                {payment.payment_status?.toUpperCase() ?? "—"}
+                                {payment.payment_status === "due_today"
+                                  ? "DUE TODAY":
+                                  payment.payment_status === "late" 
+                                  ? "PAID LATE":
+                                   payment.payment_status?.toUpperCase() ?? "—"}
                               </span>
                             </td>
 

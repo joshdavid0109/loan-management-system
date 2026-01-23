@@ -51,7 +51,7 @@ export interface RepaymentSchedule {
   total_paid?: number;
   paid_date?: string | null;
 
-  payment_status?: "paid" | "late" | "overdue" | "unpaid";
+  payment_status?: "paid" | "late" | "due_today" |"overdue" | "unpaid";
 }
 
 export interface Payment {

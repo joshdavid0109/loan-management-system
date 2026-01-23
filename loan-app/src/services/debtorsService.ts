@@ -43,6 +43,7 @@ export const fetchLoansByDebtor = async (debtor_id: number) => {
 
   if (error) return { data: null, error };
 
+
   const mapped = (data || []).map((r: any) => ({
     loan_id: Number(r.loan_id),
     debtor_id: Number(r.debtor_id),
@@ -57,6 +58,8 @@ export const fetchLoansByDebtor = async (debtor_id: number) => {
     status: r.status,
 
     debtor: null, // no need
+
+    amount_to_be_returned: r.total_to_be_paid,
 
     // single legacy creditor
     creditor: r.creditors ?? null,

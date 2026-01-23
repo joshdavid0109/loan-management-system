@@ -71,6 +71,10 @@ const DebtorsManagement: React.FC = () => {
 
     setLoadingLoans(true);
     const { data, error } = await fetchLoansByDebtor(d.debtor_id);
+
+        console.log("fetch" , data);
+
+
     if (error) {
       console.error('Failed to fetch loans', error);
       setLoansForDebtor([]);
@@ -298,69 +302,135 @@ const DebtorsManagement: React.FC = () => {
                 </div>
 
                 {/* Debtor loans listing */}
-                <div className="mt-6">
-                  <h4 className="font-semibold text-slate-900 mb-3">Loans</h4>
-                  {loadingLoans ? (
-                    <div className="p-4 text-sm text-slate-500">Loading loans for this debtor...</div>
-                  ) : loansForDebtor.length === 0 ? (
-                    <div className="p-4 text-sm text-slate-500">No loans for this debtor.</div>
-                  ) : (
-                    <div className="space-y-3">{loansForDebtor.map((ln) => (
-                      <div key={ln.loan_id} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center">
-                        <div>
+               <div className="mt-6">
+                <h4 className="font-semibold text-slate-900 mb-3">Loans</h4>
+
+                {loadingLoans ? (
+                  <div className="p-4 text-sm text-slate-500">
+                    Loading loans for this debtor...
+                  </div>
+                ) : loansForDebtor.length === 0 ? (
+                  <div className="p-4 text-sm text-slate-500">
+                    No loans for this debtor.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {loansForDebtor.map((ln) => (
+                      <div
+                        key={ln.loan_id}
+                        className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                      >
+                        {/* Header */}
+                        <div className="flex justify-between items-start mb-2">
                           <div>
-                            <div>
-                              {/* Case: multi creditor */}
-                              {(() => {
-                                const allocs = (ln as any).allocations ?? [];
-
-                                if (allocs.length > 0) {
-                                  return (
-                                    <div className="space-y-1">
-                                      {allocs.map((a: any, i: number) => (
-                                        <div key={i} className="text-sm font-semibold">
-                                          {a.creditors.first_name} {a.creditors.last_name}
-                                          <span className="text-xs text-slate-500">
-                                            {" • "}Allocated: {formatCurrency(a.amount_allocated)}
-                                          </span>
-                                          <div className="text-xs text-slate-500">
-                                            {ln.frequency_of_collection} • {ln.loan_term_months} months
-                                        </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                }
-
-                                // Case: single creditor
-                                if (ln.creditor) {
-                                  return (
-                                    <>
-                                    <div className="text-sm font-semibold">
-                                      {ln.creditor.first_name} {ln.creditor.last_name}
-                                    </div>
-                                    <div className="text-xs text-slate-500">
-                                      {ln.frequency_of_collection} • {ln.loan_term_months} months
-                                   </div>
-                            </>
-                                  );
-                                }
-
-                                return <div className="text-sm text-slate-500">—</div>;
-                              })()}
+                            <div className="text-sm font-semibold text-slate-900">
+                              Loan #{ln.loan_id}
                             </div>
+                            <div className="text-xs text-slate-500">
+                              {ln.frequency_of_collection} • {ln.loan_term_months} months
+                            </div>
+                          </div>
 
-                            
+                          <span
+                            className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                              ln.status === 'active'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {ln.status}
+                          </span>
+                        </div>
+
+                        {/* Loan details */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <div className="text-slate-500">Principal</div>
+                            <div className="font-semibold">
+                              {formatCurrency(ln.principal_amount)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-slate-500">To be Paid</div>
+                            <div className="font-semibold">
+                              {formatCurrency(ln.amount_to_be_returned)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-slate-500">Interest / month</div>
+                            <div className="font-semibold">
+                              {ln.interest_rate_monthly}%
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-slate-500">Collection</div>
+                            <div className="font-semibold">
+                              {ln.frequency_of_collection}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-slate-500">Start Date</div>
+                            <div className="font-semibold">
+                              {ln.start_date ?? '—'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-slate-500">Released</div>
+                            <div className="font-semibold">
+                              {ln.date_released ?? '—'}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm font-bold">{formatCurrency(ln.principal_amount)}</div>
-                          <div className="text-xs text-slate-500">{ln.status}</div>
+
+                        {/* Allocations (multi-creditor support) */}
+                        {Array.isArray((ln as any).allocations) &&
+                          (ln as any).allocations.length > 0 && (
+                            <div className="mt-3 border-t pt-3">
+                              <div className="text-xs font-semibold text-slate-600 mb-1">
+                                Creditors
+                              </div>
+                              <div className="space-y-1">
+                                {(ln as any).allocations.map((a: any, i: number) => (
+                                  <div
+                                    key={i}
+                                    className="flex justify-between text-xs text-slate-700"
+                                  >
+                                    <span>
+                                      {a.creditors.first_name} {a.creditors.last_name}
+                                    </span>
+                                    <span className="font-semibold">
+                                      {formatCurrency(a.amount_allocated)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Footer */}
+                        <div className="mt-3 text-xs text-slate-500 flex justify-between">
+                          {ln.is_shared_loan && (
+                            <span className="text-indigo-600 font-semibold">
+                              Shared Loan
+                            </span>
+                          )}
+                          {ln.is_allocated && (
+                            <span className="text-indigo-600 font-semibold">
+                              Allocated Loan
+                            </span>
+                          )}
                         </div>
                       </div>
-                    ))}</div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
 
                 <div className="mt-8 flex justify-end space-x-4">
                   <button onClick={() => setShowModal(false)} className="px-6 py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 transition-colors duration-200 font-semibold">Close</button>
