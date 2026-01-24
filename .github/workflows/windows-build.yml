@@ -1,37 +1,44 @@
-name: Tauri Windows Build
+name: Build Windows Desktop App
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build-windows:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
           cache: npm
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # IMPORTANT: match your working setup
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
-      - name: Build Windows app (Tauri)
+      # 🔁 REPLACEMENT for Expo
+      - name: Build Vite Web
+        run: npm run build
+
+      # ✅ SAME as your working action
+      - name: Build Tauri (Windows)
         run: npx tauri build
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-windows
+          name: loan-management-system-windows
           path: |
             src-tauri/target/release/bundle/msi/**
             src-tauri/target/release/bundle/nsis/**
