@@ -27,6 +27,7 @@ export const fetchDebtorsWithStats = async (): Promise<{ data: DebtorStat[] | nu
 };
 
 /** Fetch loans for a given debtor (includes debtor/creditor join if needed) */
+/** Fetch loans for a given debtor */
 export const fetchLoansByDebtor = async (debtor_id: number) => {
   const { data, error } = await supabase
     .from("loans")
@@ -43,33 +44,57 @@ export const fetchLoansByDebtor = async (debtor_id: number) => {
 
   if (error) return { data: null, error };
 
+  const mapped: Loan[] = (data ?? []).map((r: any) => {
+    const allocations =
+      (r.loan_creditor_allocations ?? []).map((a: any) => ({
+        amount_allocated: Number(a.amount_allocated),
+        ...a.creditors,
+      }));
 
-  const mapped = (data || []).map((r: any) => ({
-    loan_id: Number(r.loan_id),
-    debtor_id: Number(r.debtor_id),
-    creditor_id: Number(r.creditor_id),
+    const totalAllocated = allocations.reduce(
+      (sum: number, a: any) => sum + Number(a.amount_allocated),
+      0
+    );
 
-    principal_amount: Number(r.principal_amount),
-    date_released: r.date_released,
-    interest_rate_monthly: Number(r.interest_rate_monthly),
-    loan_term_months: Number(r.loan_term_months),
-    frequency_of_collection: r.frequency_of_collection,
-    start_date: r.start_date,
-    status: r.status,
+    return {
+      loan_id: Number(r.loan_id),
+      debtor_id: Number(r.debtor_id),
+      creditor_id: r.creditor_id ? Number(r.creditor_id) : null,
 
-    debtor: null, // no need
+      principal_amount: Number(r.principal_amount),
+      date_released: r.date_released,
+      interest_rate_monthly: Number(r.interest_rate_monthly),
+      loan_term_months: Number(r.loan_term_months),
+      frequency_of_collection: r.frequency_of_collection,
+      start_date: r.start_date,
+      status: r.status,
 
-    amount_to_be_returned: r.total_to_be_paid,
+      debtor: null, // intentionally omitted here
 
-    // single legacy creditor
-    creditor: r.creditors ?? null,
+      // legacy single creditor
+      creditor: r.creditors ?? null,
 
-    // multi creditor allocations
-    allocations: r.loan_creditor_allocations ?? []
-  }));
+      // multi-creditor
+      allocations,
+      creditors: allocations,
 
-  return { data: mapped as Loan[], error: null };
+      // ✅ derived fields (THIS FIXES TS)
+      amount_allocated: totalAllocated,
+      amount_to_be_returned:
+        Number(r.total_to_be_paid) ??
+        Number(r.principal_amount) *
+          (1 +
+            (Number(r.interest_rate_monthly) / 100) *
+              Number(r.loan_term_months)),
+
+      is_allocated: totalAllocated > 0,
+      is_shared_loan: allocations.length > 1,
+    };
+  });
+
+  return { data: mapped, error: null };
 };
+
 
 
 /** Create debtor */

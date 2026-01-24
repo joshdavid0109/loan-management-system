@@ -140,28 +140,46 @@ const LoansManagement: React.FC<LoansManagementProps> = ({ onCreateNewLoan }) =>
       });
 
       // 5. FINAL — Build Loan objects cleanly
-      const mapped: Loan[] = (loanRows ?? []).map((loan: any) => ({
-        loan_id: loan.loan_id,
-        debtor_id: loan.debtor_id,
-        creditor_id: loan.creditor_id, // legacy
-        principal_amount: loan.principal_amount,
-        date_released: loan.date_released,
-        interest_rate_monthly: loan.interest_rate_monthly,
-        loan_term_months: loan.loan_term_months,
-        frequency_of_collection: loan.frequency_of_collection,
-        start_date: loan.start_date,
-        status: loan.status,
-        debtor: loan.debtors,
+      const mapped: Loan[] = (loanRows ?? []).map((loan: any) => {
+        const allocations = allocMap[loan.loan_id] ?? [];
 
-        // multi-creditor list
-        creditors: allocMap[loan.loan_id] ?? [],
+        const totalAllocated = allocations.reduce(
+          (sum, a) => sum + Number(a.amount_allocated),
+          0
+        );
 
-        // legacy single creditor
-        creditor: singleCredMap[loan.creditor_id] ?? null,
+        return {
+          loan_id: loan.loan_id,
+          debtor_id: loan.debtor_id,
+          creditor_id: loan.creditor_id,
 
-        // alias for table rendering (optional)
-        allocations: allocMap[loan.loan_id] ?? []
-      }));
+          principal_amount: loan.principal_amount,
+          date_released: loan.date_released,
+          interest_rate_monthly: loan.interest_rate_monthly,
+          loan_term_months: loan.loan_term_months,
+          frequency_of_collection: loan.frequency_of_collection,
+          start_date: loan.start_date,
+          status: loan.status,
+
+          debtor: loan.debtors,
+          creditor: singleCredMap[loan.creditor_id] ?? null,
+
+          creditors: allocations,
+          allocations,
+
+          // ✅ derived values
+          amount_allocated: totalAllocated,
+          amount_to_be_returned:
+            loan.principal_amount +
+            loan.principal_amount *
+              (loan.interest_rate_monthly / 100) *
+              loan.loan_term_months,
+
+          is_allocated: totalAllocated > 0,
+          is_shared_loan: allocations.length > 1,
+        };
+      });
+
 
       setLoans(mapped);
     } catch (err: any) {

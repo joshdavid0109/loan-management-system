@@ -18,7 +18,7 @@ export interface Debtor {
 export interface Loan {
   loan_id: number;
   debtor_id: number;
-  creditor_id: number;
+  creditor_id?: number | null;
   principal_amount: number;
   date_released: string;
   interest_rate_monthly: number;
