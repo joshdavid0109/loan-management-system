@@ -10,6 +10,10 @@ jobs:
   build-windows:
     runs-on: windows-latest
 
+    defaults:
+      run:
+        working-directory: loan-management-system
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -19,19 +23,17 @@ jobs:
         with:
           node-version: 18
           cache: npm
+          cache-dependency-path: loan-management-system/package-lock.json
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # IMPORTANT: match your working setup
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      # 🔁 REPLACEMENT for Expo
       - name: Build Vite Web
         run: npm run build
 
-      # ✅ SAME as your working action
       - name: Build Tauri (Windows)
         run: npx tauri build
 
@@ -40,5 +42,5 @@ jobs:
         with:
           name: loan-management-system-windows
           path: |
-            src-tauri/target/release/bundle/msi/**
-            src-tauri/target/release/bundle/nsis/**
+            loan-management-system/src-tauri/target/release/bundle/msi/**
+            loan-management-system/src-tauri/target/release/bundle/nsis/**
