@@ -9,27 +9,34 @@ jobs:
   build-windows:
     runs-on: windows-latest
 
-    steps:
-      - uses: actions/checkout@v4
+    defaults:
+      run:
+        working-directory: loan-app
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: loan-app/package-lock.json
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install frontend dependencies
+        run: npm install --legacy-peer-deps
 
       - name: Build Tauri (Windows)
         run: npx @tauri-apps/cli build
-        working-directory: loan-app
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
           path: |
-            src-tauri/target/release/bundle/msi/**
-            src-tauri/target/release/bundle/nsis/**
+            loan-app/src-tauri/target/release/bundle/msi/**
+            loan-app/src-tauri/target/release/bundle/nsis/**
