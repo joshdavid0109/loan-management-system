@@ -9,7 +9,6 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri"
-
   },
   "dependencies": {
     "@headlessui/react": "^2.0.0",
